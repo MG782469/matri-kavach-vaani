@@ -1,0 +1,18 @@
+[
+  {"id":"en_complete_a","group":"english","transcript":"Patient ID: DEMO-001, village: Rampur, contact: 9999999999, reason: transport coordination requested","expected":{"patient_ref":"DEMO-001","village":"Rampur","contact":"9999999999","referral_reason":"transport coordination requested"}},
+  {"id":"en_complete_b","group":"english","transcript":"Patient reference TEST123 hai village Ranchi contact number 9876543210 referral reason: hospital visit coordination","expected":{"patient_ref":"TEST123","village":"Ranchi","contact":"9876543210","referral_reason":"hospital visit coordination"}},
+  {"id":"en_complete_c","group":"english","transcript":"Patient ID: REF220, village: Sonpur, contact: 9812345670, reason: hospital transport requested","expected":{"patient_ref":"REF220","village":"Sonpur","contact":"9812345670","referral_reason":"hospital transport requested"}},
+  {"id":"hi_prisma_style","group":"hindi","transcript":"नमस्ते पेशेंट्स का रेफरेंस नंबर १०२४ है पेशेंट्स रामपुर गाँव से हैं कॉन्टेक्ट नंबर ९८७६५४३२१० है पेशेंट को चेकअप के लिए हॉस्पिटल रेफरल की जरूरत है कृपया हॉस्पिटल रेफरल अरेंज करें","expected":{"patient_ref":"1024","village":"रामपुर","contact":"9876543210","referral_reason":"पेशेंट को चेकअप के लिए हॉस्पिटल रेफरल की जरूरत है"}},
+  {"id":"hi_reference_only","group":"hindi","transcript":"मरीज़ का रेफरेंस नंबर २०४८ है","expected":{"patient_ref":"2048","village":"","contact":"","referral_reason":""}},
+  {"id":"hi_contact_only","group":"hindi","transcript":"संपर्क नंबर ९८७६५४३२१० है","expected":{"patient_ref":"","village":"","contact":"9876543210","referral_reason":""}},
+  {"id":"hinglish_complete","group":"hinglish","transcript":"Patient reference 1024 hai village Rampur contact number 9876543210 referral reason: hospital checkup","expected":{"patient_ref":"1024","village":"Rampur","contact":"9876543210","referral_reason":"hospital checkup"}},
+  {"id":"hinglish_two","group":"hinglish","transcript":"Patient ID: XR2, village: Kheri, contact: 9876543210, reason: transport coordination requested","expected":{"patient_ref":"XR2","village":"Kheri","contact":"9876543210","referral_reason":"transport coordination requested"}},
+  {"id":"no_markers","group":"negative","transcript":"नमस्ते, जल्दी मदद चाहिए","expected":{"patient_ref":"","village":"","contact":"","referral_reason":""}},
+  {"id":"contact_short","group":"negative","transcript":"contact number 987654321, village: Rampur","expected":{"patient_ref":"","village":"Rampur","contact":"","referral_reason":""}},
+  {"id":"conflicting_id","group":"negative","transcript":"Patient ID: 1024, Patient ID: 2048, village: Rampur, contact: 9876543210, reason: transport coordination","expected":{"patient_ref":"","village":"Rampur","contact":"9876543210","referral_reason":"transport coordination"}},
+  {"id":"plain_number","group":"negative","transcript":"9876543210 please call back","expected":{"patient_ref":"","village":"","contact":"","referral_reason":""}},
+  {"id":"village_only","group":"partial","transcript":"Village: Ranchi","expected":{"patient_ref":"","village":"Ranchi","contact":"","referral_reason":""}},
+  {"id":"reason_only","group":"partial","transcript":"reason: transport coordination requested","expected":{"patient_ref":"","village":"","contact":"","referral_reason":"transport coordination requested"}},
+  {"id":"id_only","group":"partial","transcript":"Patient ID: DEMO-700","expected":{"patient_ref":"DEMO-700","village":"","contact":"","referral_reason":""}},
+  {"id":"missing_reason","group":"partial","transcript":"Patient ID: CASE11, village: Kheri, contact: 9999999999","expected":{"patient_ref":"CASE11","village":"Kheri","contact":"9999999999","referral_reason":""}}
+]

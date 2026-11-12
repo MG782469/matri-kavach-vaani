@@ -1,0 +1,237 @@
+{
+  "evaluation_type": "offline synthetic transcript-to-fields only",
+  "audio_stt_evaluated": false,
+  "gnani_prisma_wer": null,
+  "gnani_prisma_cer": null,
+  "gnani_timbre_mos": null,
+  "live_hospital_outcomes": null,
+  "fixtures": 16,
+  "field_slots": 64,
+  "case_exact_match_count": 16,
+  "case_exact_match_pct": 100.0,
+  "field_exact_match_count": 64,
+  "field_exact_match_pct": 100.0,
+  "expected_nonempty_fields": 36,
+  "correct_nonempty_fields": 36,
+  "abstentions_on_expected_fields": 0,
+  "wrong_nonempty_on_expected_fields": 0,
+  "false_populated_fields": 0,
+  "median_local_parser_ms": 0.048,
+  "p95_local_parser_ms": 2.738,
+  "by_group": {
+    "english": {
+      "total": 3,
+      "exact": 3
+    },
+    "hindi": {
+      "total": 3,
+      "exact": 3
+    },
+    "hinglish": {
+      "total": 2,
+      "exact": 2
+    },
+    "negative": {
+      "total": 4,
+      "exact": 4
+    },
+    "partial": {
+      "total": 4,
+      "exact": 4
+    }
+  },
+  "cases": [
+    {
+      "id": "en_complete_a",
+      "group": "english",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 2.738
+    },
+    {
+      "id": "en_complete_b",
+      "group": "english",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.075
+    },
+    {
+      "id": "en_complete_c",
+      "group": "english",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.055
+    },
+    {
+      "id": "hi_prisma_style",
+      "group": "hindi",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.126
+    },
+    {
+      "id": "hi_reference_only",
+      "group": "hindi",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.036
+    },
+    {
+      "id": "hi_contact_only",
+      "group": "hindi",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.048
+    },
+    {
+      "id": "hinglish_complete",
+      "group": "hinglish",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.059
+    },
+    {
+      "id": "hinglish_two",
+      "group": "hinglish",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.053
+    },
+    {
+      "id": "no_markers",
+      "group": "negative",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.023
+    },
+    {
+      "id": "contact_short",
+      "group": "negative",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.032
+    },
+    {
+      "id": "conflicting_id",
+      "group": "negative",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.054
+    },
+    {
+      "id": "plain_number",
+      "group": "negative",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.02
+    },
+    {
+      "id": "village_only",
+      "group": "partial",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.019
+    },
+    {
+      "id": "reason_only",
+      "group": "partial",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.026
+    },
+    {
+      "id": "id_only",
+      "group": "partial",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.017
+    },
+    {
+      "id": "missing_reason",
+      "group": "partial",
+      "exact": true,
+      "field_matches": {
+        "patient_ref": true,
+        "village": true,
+        "contact": true,
+        "referral_reason": true
+      },
+      "latency_ms": 0.033
+    }
+  ]
+}

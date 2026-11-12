@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: matri-kavach-vaani-synthetic-preview
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: GNANI_MODE
+        value: mock
+      - key: DEMO_PUBLIC
+        value: '1'
+      - key: CASE_DB_PATH
+        value: /tmp/matri-vaani-demo.sqlite3
+      - key: DEMO_ACCESS_PASSWORD
+        sync: false
