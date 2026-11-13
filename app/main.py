@@ -1,14 +1,25 @@
 import os, io, json, requests
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 from .storage import SQLiteCaseStore, CaseMissing, StaleCase
 from .core import Case, REQUIRED, parse_transcript, validate
 from .settings import Settings
 from .timbre import synthesize, TimbreError, model_and_voice
 from .handoff import create_demo_handoff, BridgeError
 from .deploy_guard import public_mode, validate_public_config, correct_basic_auth
+from .prisma import transcribe, PrismaError, NothingHeard, profile_name
+from .clarify import question_for, parse_answer, resolve_choice, LABELS, QUESTIONS
+from .extraction import find_conflicts
+
+def gnani_key():
+    """API key from the environment, cleaned of the quotes/spaces a shell `set` easily adds.
+
+    CMD keeps quotes literally (set GNANI_API_KEY="abc" -> '"abc"'), which Gnani rejects as 401.
+    """
+    return (os.getenv('GNANI_API_KEY') or '').strip().strip('"\'').strip()
 
 SETTINGS = Settings.from_environment()
 validate_public_config()
@@ -80,41 +91,99 @@ def view(case):
             'confirmed':case.can_submit(),'submitted':case.submitted,'referral_id':case.referral_id,
             'errors':validate(case.fields),'events':case.events,'mode':MODE,
             'correction_count':sum(e['event']=='fields_corrected_confirmation_invalidated' for e in case.events),
-            'readback_ready':case.can_confirm()}
+            'readback_ready':case.can_confirm(),
+            'clarification':None if case.submitted else open_question(case),
+            'clarification_count':sum(str(e.get('event','')).startswith('voice_clarification_filled') for e in case.events),
+            'conflicts':case.conflicts,'resolutions':case.resolutions,
+            'field_states':field_states(case),'evidence':evidence(case)}
+
+def open_question(case):
+    kinds={k:('correction' if case.fields.get(k) else 'transcript') for k in case.conflicts}
+    return question_for(case.fields, case.conflicts, kinds)
+
+def field_states(case):
+    """Traceable per-field verification state, derived only from observable workflow facts."""
+    errors=validate(case.fields); out={}
+    for k in REQUIRED:
+        if k in case.conflicts: state='conflict'
+        elif not case.fields.get(k): state='missing'
+        elif k in errors: state='invalid'
+        elif case.submitted or case.can_submit(): state='confirmed'
+        elif case.can_confirm(): state='read_back'
+        else: state='needs_readback'
+        source=case.sources.get(k) or ('not provided' if not case.fields.get(k) else 'transcript')
+        if k in case.conflicts: source=f'{len(case.conflicts[k])} different values heard'
+        out[k]={'state':state,'source':source,
+                'resolved_conflict':any(r['field']==k for r in case.resolutions)}
+    return out
+
+def evidence(case):
+    """Referral Evidence Passport: what was heard, changed and approved — no patient values."""
+    ev=[e.get('event','') for e in case.events]
+    return {'case_ref':case.id[:8].upper(),'version':case.version,
+            'fields_complete':sum(1 for k in REQUIRED if case.fields.get(k) and k not in validate(case.fields) and k not in case.conflicts),
+            'fields_total':len(REQUIRED),
+            'voice_clarifications':sum(x.startswith('voice_clarification_filled') for x in ev),
+            'conflicts_detected':len(case.resolutions)+len(case.conflicts),'conflicts_resolved':len(case.resolutions),
+            'manual_edits':sum(1 for k in REQUIRED if case.sources.get(k)=='manual edit'),
+            'readback_current_version':case.can_confirm() or case.can_submit(),
+            'timbre_audio_generated':'timbre_audio_generated_for_review' in ev,
+            'worker_confirmed_version':case.confirmed_version if case.can_submit() else None,
+            'submitted':case.submitted,'referral_id':case.referral_id,
+            'handoff':demo_link_from_events(case)['status'],'synthetic_only':True}
+
+def set_sources(case, source):
+    case.sources={k:source for k in REQUIRED if case.fields.get(k)}
 
 @app.get('/api/health')
 def health(): return {'status':'ok', 'service':'matri-kavach-vaani', 'mode':MODE, 'clinical_use':False}
 
 @app.get('/api/config')
-def config(): return {'mode': MODE, 'prisma_live': MODE=='live' and bool(os.getenv('GNANI_API_KEY')), 'timbre_live': MODE=='live' and bool(os.getenv('GNANI_API_KEY'))}
+def config():
+    live = MODE=='live' and bool(gnani_key())
+    try: profile = profile_name()
+    except PrismaError: profile = 'invalid'
+    return {'mode': MODE, 'prisma_live': live, 'timbre_live': live, 'stt_profile': profile}
+
+async def read_audio(file):
+    audio=await file.read(SETTINGS.max_audio_bytes + 1)
+    if len(audio)>SETTINGS.max_audio_bytes: raise HTTPException(413,'Audio too large')
+    if not audio: raise HTTPException(422,'Audio required')
+    return audio
+
+def live_key():
+    if MODE!='live': raise HTTPException(400,'Live speech recognition disabled. Set GNANI_MODE=live and GNANI_API_KEY. For mock use text form.')
+    key=gnani_key()
+    if not key: raise HTTPException(503,'Missing GNANI_API_KEY')
+    return key
+
+def prisma_text(audio, file, key, previous_text=None):
+    try:
+        return transcribe(audio, file.filename, file.content_type, key, max_chars=SETTINGS.max_transcript_chars,
+                          transport=requests.post, previous_text=previous_text)
+    except NothingHeard:
+        raise HTTPException(422,'कुछ सुनाई नहीं दिया — nothing was heard. Please speak again closer to the microphone; nothing changed.')
+    except Exception as exc:
+        raise HTTPException(502,f'Prisma request failed; nothing changed: {type(exc).__name__}')
 
 @app.post('/api/cases/from-transcript')
 def new_case(body: TranscriptInput):
     if not body.transcript.strip(): raise HTTPException(422,'Transcript required')
     if len(body.transcript)>SETTINGS.max_transcript_chars: raise HTTPException(413,'Transcript too long')
     c=Case(transcript=body.transcript);c.fields=parse_transcript(c.transcript);c.log('demo_transcript_entered')
+    c.conflicts=find_conflicts(c.transcript);set_sources(c,'typed transcript')
+    if c.conflicts: c.log('conflicting_values_detected')
     STORE.create(c)
     return view(c)
 
 @app.post('/api/cases/from-audio')
 async def from_audio(file:UploadFile=File(...)):
-    if MODE!='live': raise HTTPException(400,'Live speech recognition disabled. Set GNANI_MODE=live and GNANI_API_KEY. For mock use text form.')
-    key=os.getenv('GNANI_API_KEY')
-    if not key: raise HTTPException(503,'Missing GNANI_API_KEY')
-    audio=await file.read(SETTINGS.max_audio_bytes + 1)
-    if len(audio)>SETTINGS.max_audio_bytes: raise HTTPException(413,'Audio too large')
-    if not audio: raise HTTPException(422,'Audio required')
-    try:
-        resp=requests.post('https://api.vachana.ai/stt/v3',headers={'X-API-Key-ID':key},
-            data={'language_code':'hi-IN','preferred_language':'hi-IN','format':'transcribe','itn_native_numerals':'true'},
-            files={'audio_file':(file.filename or 'voice.wav',io.BytesIO(audio),file.content_type or 'audio/wav')},timeout=35)
-        resp.raise_for_status(); result=resp.json()
-        transcript=result.get('transcript','')
-        if not isinstance(transcript,str) or not transcript.strip(): raise ValueError('No transcript returned')
-        if len(transcript)>SETTINGS.max_transcript_chars: raise ValueError('Transcript exceeds limit')
-    except Exception as exc:
-        raise HTTPException(502,f'Prisma request failed; no referral created: {type(exc).__name__}')
+    key=live_key()
+    audio=await read_audio(file)
+    transcript=await run_in_threadpool(prisma_text, audio, file, key)
     c=Case(transcript=transcript);c.fields=parse_transcript(c.transcript);c.log('prisma_transcribed')
+    c.conflicts=find_conflicts(c.transcript);set_sources(c,'speech (Prisma)')
+    if c.conflicts: c.log('conflicting_values_detected')
     STORE.create(c)
     return view(c)
 
@@ -124,7 +193,14 @@ def read_case(case_id:str):return view(get_case(case_id))
 @app.put('/api/cases/{case_id}/fields')
 def update_case(case_id:str, body:FieldsInput):
     def apply(c):
+        before=dict(c.fields)
         c.update(body.fields)
+        for k in REQUIRED:
+            if c.fields[k]!=before.get(k): c.sources[k]='manual edit'
+            # Typing a value is an explicit worker decision on a conflicted field.
+            # Only a CHANGED value counts; saving another field must not silently settle a conflict.
+            if k in c.conflicts and c.fields[k] and c.fields[k]!=before.get(k):
+                c.resolve_conflict(k,c.fields[k],'manual edit')
     try: return view(modify_case(case_id, apply, body.expected_version))
     except ValueError as e: raise HTTPException(409,str(e))
 
@@ -137,9 +213,11 @@ def confirm(case_id:str, body:ConfirmInput):
 def readback_text(c):
     errors = validate(c.fields)
     if errors: raise ValueError('Invalid fields: '+json.dumps(errors, ensure_ascii=False))
-    # Deliberate digit-by-digit contact readback to avoid number grouping ambiguity.
+    # Digit-by-digit read-back (ICAO-style), grouped 5+5 so the voice pauses mid-number.
+    contact = c.fields['contact']
+    spoken_contact = ' '.join(contact[:5]) + ', ' + ' '.join(contact[5:])
     return (f"मरीज़ संदर्भ {' '.join(c.fields['patient_ref']) if c.fields['patient_ref'].isdigit() else c.fields['patient_ref']}. "
-            f"गांव {c.fields['village']}. संपर्क नंबर {' '.join(c.fields['contact'])}. "
+            f"गांव {c.fields['village']}. संपर्क नंबर {spoken_contact}. "
             f"रेफरल कारण {c.fields['referral_reason']}. "
             "कृपया सभी विवरण ध्यान से जांचें। यह केवल परीक्षण है।")
 
@@ -153,13 +231,13 @@ def readback(case_id:str):
     try: _, text=STORE.mutate(case_id,apply)
     except CaseMissing: raise HTTPException(404,'Case not found; create a new draft')
     except ValueError as e: raise HTTPException(422,str(e))
-    return {'text':text,'audio_available':MODE=='live' and bool(os.getenv('GNANI_API_KEY')),
+    return {'text':text,'audio_available':MODE=='live' and bool(gnani_key()),
             'source':'text_only', 'notice':'Text preview; audio requires the Generate Timbre audio action.'}
 
 @app.post('/api/cases/{case_id}/readback/audio')
 def readback_audio(case_id:str, body:AudioReadbackInput):
     if MODE!='live': raise HTTPException(400, 'Timbre is unavailable in mock mode')
-    key=os.getenv('GNANI_API_KEY')
+    key=gnani_key()
     if not key: raise HTTPException(503,'Missing GNANI_API_KEY')
     c=get_case(case_id)
     if c.submitted: raise HTTPException(409,'Submitted case cannot regenerate read-back')
@@ -179,6 +257,104 @@ def readback_audio(case_id:str, body:AudioReadbackInput):
     except ValueError as e: raise HTTPException(409,str(e))
     return Response(audio, media_type='audio/wav',headers={'Cache-Control':'no-store',
            'X-Case-Version':str(body.expected_version),'X-Audio-Source':'gnani-timbre'})
+
+class ClarifyQuestionInput(BaseModel):
+    expected_version: int
+    field: str
+
+def require_open_question(c, field, expected_version):
+    if c.submitted: raise HTTPException(409,'Submitted case cannot be changed')
+    if c.version != expected_version: raise HTTPException(409,'Case changed; refresh and try again')
+    q = open_question(c)
+    if q is None or field not in q['remaining']:
+        raise HTTPException(409,'This field does not need clarification')
+    return q
+
+def question_text(c, field):
+    kinds={k:('correction' if c.fields.get(k) else 'transcript') for k in c.conflicts}
+    if field in c.conflicts:
+        return question_for({**c.fields}, {field:c.conflicts[field]}, kinds)['question']
+    return QUESTIONS[field]
+
+@app.post('/api/cases/{case_id}/clarification/audio')
+def clarification_audio(case_id:str, body:ClarifyQuestionInput):
+    """Timbre speaks the Hindi question for one missing, invalid or conflicting field (live mode only)."""
+    if MODE!='live': raise HTTPException(400,'Timbre is unavailable in mock mode')
+    key=gnani_key()
+    if not key: raise HTTPException(503,'Missing GNANI_API_KEY')
+    c=get_case(case_id)
+    require_open_question(c, body.field, body.expected_version)
+    try: audio=synthesize(question_text(c, body.field),key)
+    except TimbreError as e: raise HTTPException(e.status, str(e))
+    return Response(audio, media_type='audio/wav',headers={'Cache-Control':'no-store','X-Audio-Source':'gnani-timbre'})
+
+async def heard_answer(c, field, answer_text, file):
+    """Prisma transcript of a spoken answer, or a typed fallback. Returns (text, source)."""
+    if file is not None:
+        key=live_key()
+        audio=await read_audio(file)
+        return await run_in_threadpool(prisma_text, audio, file, key, question_text(c, field) if field in REQUIRED else None), 'prisma'
+    if answer_text and answer_text.strip():
+        if len(answer_text)>SETTINGS.max_transcript_chars: raise HTTPException(413,'Answer too long')
+        return answer_text.strip(), 'typed'
+    raise HTTPException(422,'Provide a spoken or typed answer')
+
+@app.post('/api/cases/{case_id}/clarify')
+async def clarify(case_id:str, field:str=Form(...), expected_version:int=Form(...),
+                  answer_text:str|None=Form(None), file:UploadFile|None=File(None)):
+    """Fill or settle ONE field from a spoken (Prisma) or typed answer. Other fields never change."""
+    c=get_case(case_id)
+    require_open_question(c, field, expected_version)
+    heard, source = await heard_answer(c, field, answer_text, file)
+    conflicted = field in c.conflicts
+    value = resolve_choice(field, heard, c.conflicts[field]) if conflicted else parse_answer(field, heard)
+    if not value:
+        hint = ' Say "पहला" or "दूसरा", or say the correct value.' if conflicted else ''
+        raise HTTPException(422,f'Could not find a usable {LABELS[field].lower()} in the answer: "{heard[:120]}". Please answer again.{hint}')
+    def apply(current):
+        if current.submitted: raise ValueError('Submitted case cannot be changed')
+        fields=dict(current.fields); fields[field]=value
+        current.update(fields)
+        current.sources[field]='voice answer (Prisma)' if source=='prisma' else 'typed answer'
+        if field in current.conflicts:
+            current.resolve_conflict(field, value, 'voice' if source=='prisma' else 'typed')
+        else:
+            current.log(f'voice_clarification_filled_{field}' if source=='prisma' else f'voice_clarification_filled_{field}_typed')
+    try: updated=modify_case(case_id, apply, expected_version)
+    except ValueError as e: raise HTTPException(409,str(e))
+    out=view(updated); out['clarified']={'field':field,'heard':heard,'value':updated.fields[field],'source':source,'resolved_conflict':conflicted}
+    return out
+
+@app.post('/api/cases/{case_id}/correct')
+async def voice_correct(case_id:str, field:str=Form(...), expected_version:int=Form(...),
+                        answer_text:str|None=Form(None), file:UploadFile|None=File(None)):
+    """Spoken correction of a field that already has a value.
+
+    A different value is NOT applied silently: both values are kept as a conflict and
+    the assistant asks the worker which one is right.
+    """
+    if field not in REQUIRED: raise HTTPException(422,'Unknown field')
+    c=get_case(case_id)
+    if c.submitted: raise HTTPException(409,'Submitted case cannot be changed')
+    if c.version != expected_version: raise HTTPException(409,'Case changed; refresh and try again')
+    if field in c.conflicts: raise HTTPException(409,'Answer the open conflict question first')
+    if not c.fields.get(field): raise HTTPException(409,'Field is empty; answer the clarification question instead')
+    heard, source = await heard_answer(c, None, answer_text, file)
+    value=parse_answer(field, heard)
+    if not value:
+        raise HTTPException(422,f'Could not find a usable {LABELS[field].lower()} in: "{heard[:120]}"')
+    # A correction must itself be complete and valid ("98765" must not become a candidate).
+    probe={k:(c.fields.get(k) or 'x') for k in REQUIRED}; probe[field]=value
+    if field in validate(probe):
+        raise HTTPException(422,f'Heard "{heard[:120]}" but {LABELS[field].lower()} "{value}" is incomplete or invalid: {validate(probe)[field]}')
+    same = value.lower()==c.fields[field].lower()
+    def apply(current):
+        if same: current.log('voice_correction_matched_'+field)
+        else: current.add_correction_conflict(field, value)
+    try: updated=modify_case(case_id, apply, expected_version)
+    except ValueError as e: raise HTTPException(409,str(e))
+    out=view(updated); out['correction']={'field':field,'heard':heard,'value':value,'matches_existing':same,'source':source}
+    return out
 
 @app.post('/api/cases/{case_id}/submit')
 def submit(case_id:str, body:SubmitInput):

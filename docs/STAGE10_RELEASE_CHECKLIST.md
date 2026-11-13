@@ -1,3 +1,5 @@
+> **Superseded:** see [SUBMISSION_KIT.md](SUBMISSION_KIT.md) for the current 60-second demo and final checklist. Kept for history.
+
 # Release readiness checklist
 
 - [x] Local Stage 9 functional workflow observed in prior synthetic demo.

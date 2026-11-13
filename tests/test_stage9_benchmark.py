@@ -129,7 +129,7 @@ class Stage9Tests(unittest.TestCase):
         self.assertEqual(self.handoff().status_code,409)
     def test_stage9_ui_has_last_known_backend_reference(self):
         from pathlib import Path
-        html=(Path(__file__).resolve().parents[1]/'app/static/index.html').read_text()
+        html=(Path(__file__).resolve().parents[1]/'app/static/index.html').read_text(encoding='utf-8')
         for name in ('caseBackendStatus','caseBackendRef','caseBackendStep'):
             self.assertIn('id="'+name+'"',html)
         self.assertIn('x.demo_backend',html)

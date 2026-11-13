@@ -1,66 +1,121 @@
-# Matri-Kavach Vaani — Voice-to-Verified Referral (Synthetic Prototype)
+# Matri-Kavach Vaani
 
-**Speak → Extract → Correct → Hindi read-back → Explicit confirmation → Simulated referral → Isolated Express demo handoff.**
+**An error-aware Hindi/Hinglish voice assistant that turns a frontline health worker's spoken referral into a verified record.** It works by finding missing or contradictory details, asking for each one aloud, reading every critical digit back, and refusing to submit anything the worker has not explicitly confirmed.
 
-This is a research and hackathon prototype. **Never use it for real patients, diagnosis, triage, ambulance dispatch or hospital communication.** Real patient data is prohibited. No clinical or operational effectiveness has been established.
+Built on **Gnani Prisma** (speech-to-text) and **Gnani Timbre** (text-to-speech) for the Great Indian AI Internship Challenge.
 
-## Provenance and scope
+> ⚠️ This is a research and hackathon prototype that uses **synthetic data only**. It does not diagnose, triage or dispatch, and it must never be used with real patients.
 
-- Local mode supports real Gnani Prisma Hindi STT and Timbre TTS **only** with the developer's own API key. The user previously observed successful transcription and audio-generation audit events; this does not constitute a measured clinical accuracy or TTS quality study.
-- Existing Matri-Kavach Express integration creates an initial **synthetic session at `details`** with clinician/worker-selected scenario. It does not transfer patient details or trigger routing/messages/calls.
-- Stage 9 offline fixture suite: 16/16 hand-authored synthetic transcript cases, 64/64 expected field matches; not an independent external validation.
-- Stage 10 automated regression suite: 105 local tests (including existing Stage 9 tests). Tests cover mocks/contract behaviour, not real production availability.
+```
+ Speak ─▶ Prisma transcript ─▶ Extract fields ─▶ Detect missing / conflicting ─▶ Timbre asks ─▶ Worker answers
+   ▲                                                                                            │
+   └──────────────────────────── repeat until every field is complete and settled ◀─────────────┘
+                                         │
+             Timbre reads back digit by digit ─▶ Worker confirms THIS version ─▶ Simulated referral ─▶ Isolated demo handoff
+```
 
-## Install Stage 10 without another permanent folder
+## The problem
 
-1. Stop local Uvicorn (Ctrl+C).
-2. Extract the Stage 10 ZIP **somewhere outside** your existing `gnani` project.
-3. Double-click `update.bat`, confirm with Y. It backs up overwritten files and runs the tests with a temporary mock setting. SQLite case data, your `.env`, and OS credentials are not overwritten.
-4. In Windows Command Prompt:
+ASHA and frontline health workers write maternal-emergency referrals under time pressure, often on paper or in form-heavy apps.
+
+- Field researchers found that ASHAs **rarely type on their phones** and instead use voice dictation and WhatsApp voice notes ([George Institute, 2025](https://cdn.georgeinstitute.org/sites/default/files/2025-05/Large-AI-model-community-health-workers.pdf)).
+- Studies of Indian maternal referrals describe incomplete referral slips and delays in reaching and receiving care ([Public Health 2022](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9883712/)).
+
+A wrong digit in a phone number, or the wrong village, costs time that a mother in labour does not have.
+
+**Users:** ASHA workers, ANMs and PHC staff who create or relay referrals.
+
+## What makes it different
+
+| Capability | What happens |
+|---|---|
+| **Voice clarification agent** | If a field is missing or invalid, Timbre asks in Hindi ("गाँव का नाम नहीं मिला। कृपया गाँव का नाम बताइए।"). The worker answers aloud, Prisma transcribes the answer, and **only that one field** is filled. |
+| **Contradiction-aware** | If the worker gave two different phone numbers, the app picks neither. Timbre asks "पहला … दूसरा … सही कौन सा है?" and the worker can answer "पहला/दूसरा", say the value, or tap it. |
+| **Corrections never overwrite silently** | When a spoken correction such as "रामपुर नहीं, सोनपुर" differs from the current value, both values are kept as a conflict, any earlier confirmation is cancelled, and the agent asks which one is right. The history records both values. |
+| **Built for real Prisma output** | It handles Devanagari numerals (९८७६…), ordinals normalised by ITN ("१st" → पहला), spoken digit words ("नौ आठ सात…", "double five"), English markers written in Devanagari ("विलेज", "रीज़न") and negation ("X नहीं, Y"). |
+| **Rejects non-answers** | "हाँ", "ok", "kya?", "पता नहीं" and silence are never accepted as a value. Negation in a clinical reason ("साँस नहीं आ रही") is kept as said. |
+| **ICAO-style read-back** | Timbre reads the phone number one digit at a time, grouped 5+5 ("9 8 7 6 5, 4 3 2 1 0"). |
+| **Verification state for each field** | Each field shows Conflict, Missing, Needs read-back, Read back or ✓ Confirmed, plus where its value came from (speech, voice answer, manual edit). These states come from recorded events, not from invented confidence scores. |
+| **Evidence Passport** | A record of what was heard, changed and approved: fields verified, conflicts resolved, whether the read-back covers the current version, and which version the worker approved. It contains no patient values. |
+
+## Gnani models used
+
+| Model | Where | How |
+|---|---|---|
+| **Prisma v2.5** (default, `hi-IN`, `format=transcribe`, native-numeral ITN) | Referral capture, clarification answers, voice corrections | REST `POST /stt/v3`. The browser records 16 kHz mono WAV, because the REST API does not accept webm. |
+| **Prisma v3.0** (`GNANI_STT_PROFILE=codemix`) | Optional Hinglish profile | `language_code=hi-IN,en-IN`, `format=codemix`. The assistant's question is passed as `previous_text` so short replies ("दूसरा") are transcribed in context. |
+| **Timbre v2.5** (Nalini) or **v3.0** (Shivani) | Clarification questions and the final read-back | REST `POST /api/v1/tts/inference`, 24 kHz WAV, Hindi. |
+
+## Evidence
+
+| What | Result | How to reproduce |
+|---|---|---|
+| Automated tests (offline, Gnani stubbed) | **171 / 171 pass** | `py -m unittest discover -s tests` |
+| **False-ready safety eval:** 24 transcripts pushed straight to submit, 10 bypass attempts, 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** When the guards are deliberately broken, the same eval reports 18 / 3 / 10. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
+| Field-extraction fixtures (hand-written synthetic transcripts) | 16/16 cases, 64/64 fields | `py benchmarks\run_benchmark.py` → [report](benchmarks/results/stage9_report.md) |
+| Live Gnani run (developer key, synthetic case) | Prisma transcribed a Hindi referral with Devanagari numerals and all 4 fields were extracted. Timbre asked a conflict question, the spoken answer resolved it, and the Timbre read-back was generated. | Manual run on 12–13 Nov 2026. Use `py scripts\live_smoke_test.py` to repeat it. |
+| Noise robustness (clean / 10 dB / 5 dB / 8 kHz phone) | Run with your key. The report separates wrong values (dangerous) from abstentions (safe, because the agent asks) and false-ready drafts. | `py benchmarks\run_tts_benchmark.py C:\private\tts_bench` |
+
+The safety and fixture results check the workflow guardrails on synthetic input. They do not measure speech-recognition accuracy, and none of this is clinical validation.
+
+## Run it
 
 ```cmd
-cd /d "C:\Users\BIT\OneDrive\Desktop\gnani"
+py -m pip install -r requirements.txt
 py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-5. Open http://127.0.0.1:8000 and hard-refresh (Ctrl+Shift+R).
+Open http://localhost:8000.
 
-If using a **new** CMD session for local live Gnani testing, set `GNANI_MODE=live` and `GNANI_API_KEY` locally, without sharing the key. Never store keys in a public GitHub repo.
+**Mock mode** (the default) works without a key. Try "Sample: conflicting numbers" or "Sample: missing details" and answer by typing.
 
-## Local test commands
+**Live mode** needs your own Gnani key. Set it in the same terminal that starts the server:
 
 ```cmd
-cd /d "C:\Users\BIT\OneDrive\Desktop\gnani"
-py -m unittest discover -s tests -v
-py benchmarks\run_benchmark.py
+set GNANI_MODE=live
+set GNANI_API_KEY=your_real_key
+py scripts\check_gnani.py
+py scripts\live_smoke_test.py
+py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-The two original `test_api` mock-specific tests now **explicitly patch mock mode** and should pass even if `GNANI_MODE=live` was left enabled in CMD. No live STT/TTS network requests are part of this suite.
+- `check_gnani.py` checks the key and its access without printing the key.
+- `live_smoke_test.py` runs the whole voice-agent flow, about 14 calls.
+- In PowerShell, set the variables with `$env:GNANI_MODE="live"` and `$env:GNANI_API_KEY="..."` instead.
+- Optional: `GNANI_STT_PROFILE=codemix` (Prisma v3.0), and `GNANI_TIMBRE_MODEL=timbre-v3.0` with `GNANI_TIMBRE_VOICE=Shivani`.
 
-## Public demo: intentionally LIMITED
+## Safety boundaries
 
-The included `render.yaml` is a **deployment starting point**, not proof of deployment. It uses `DEMO_PUBLIC=1` with `GNANI_MODE=mock` and requires a unique 16+ character `DEMO_ACCESS_PASSWORD`, entered in the host's secret environment controls. Visitors use browser HTTP Basic auth with username `demo` and that password, over **HTTPS only**.
+- Synthetic data only, with fictional numbers and names. Keys stay on the server and are never returned or logged.
+- An answer can only change the field that was asked about. Clarification never confirms anything.
+- Every change creates a new version and cancels earlier read-backs and confirmations. Submission requires a read-back and an explicit acknowledgement for the exact current version, and it is idempotent.
+- The handoff to the original Matri-Kavach Express demo sends **no patient fields**, creates no hospital routing and sends no messages.
+- The public preview (`render.yaml`) runs in mock mode behind a shared demo password. It is not a secure multi-user service.
 
-For public previews, real Prisma/Timbre calls and Express backend handoff are disabled. Demo text entry, editing, read-back text, confirmation and simulated submission can still be shown with fictional data. The public demo is **not** a secure multi-user case-management service; a shared password is an MVP demo gate, not identity-based authorisation. Public free hosting may use ephemeral storage; SQLite case history may disappear on restart/redeploy. **Do not promise public persistence or upload any real identity/medical records.**
+## Limits
 
-See [docs/STAGE10_DEPLOYMENT.md](docs/STAGE10_DEPLOYMENT.md) for exact deployment, credential and security checks, plus [docs/STAGE10_DEMO_SCRIPT.md](docs/STAGE10_DEMO_SCRIPT.md) for a 3-minute walkthrough.
+- The first spoken utterance is parsed with rules that depend on markers such as "patient ID" or "गाँव". The clarification loop is what handles natural, incomplete speech.
+- The noise benchmark uses Timbre-generated speech with noise added artificially. It is a robustness check, not a field recording study.
+- The `codemix` profile follows the Gnani docs but has not been checked end to end with a live key.
 
-## Architecture
+## Repository map
 
-- FastAPI + local SQLite for synthetic case state, versioned confirmation, audit trail.
-- Gnani Prisma STT and Timbre TTS for local authorised developer testing.
-- Conservative extraction; a worker must review fields. No diagnosis/classification.
-- Optional, isolated Matri-Kavach Express demo bridge; scenario chosen by worker. No patient fields forwarded.
-- Responsive HTML/JS dashboard and offline synthetic evaluation scripts.
+```
+app/main.py           FastAPI endpoints, versioned case workflow, field states, evidence passport
+app/clarify.py        Clarification questions, answer parsing, conflict resolution, non-answer rejection
+app/extraction.py     Conservative field extraction and conflict detection (Prisma-style Hindi/Hinglish)
+app/prisma.py         Gnani Prisma REST adapter (hindi / codemix profiles, previous_text context)
+app/timbre.py         Gnani Timbre REST adapter (bounded, validated WAV)
+app/core.py           Case model: versions, read-back/confirmation digests, conflicts, resolution history
+app/static/index.html Single-page UI: recorder (16 kHz WAV), voice assistant, field states, passport
+benchmarks/           Safety eval, fixture benchmark, TTS noise benchmark, audio variant generator
+scripts/              check_gnani.py (key diagnosis), live_smoke_test.py (live end-to-end check)
+docs/                 Architecture, API, evidence, demo and submission kit
+tests/                171 offline tests
+```
 
-## Evidence and limitations
+More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)
 
-`benchmarks/results/stage9_report.md` contains reproducible local fixture results. For true WER/CER, record consent-free **synthetic** speech, create an independently reviewed ground-truth transcript, and use `benchmarks/score_transcripts.py` per `docs/STAGE9_TESTING_AND_EVIDENCE.md`. Do not claim that parser fixture scores are speech recognition accuracy, hospital outcomes or field impact.
+## License
 
-## GitHub submission checklist
-
-- Public repo contains only source, synthetic fixtures, clear README, licence selected by the team, and no keys or real patient data.
-- Include screenshot/video showing synthetic-only banners and a complete demo workflow.
-- Add results from a genuine independent audio evaluation **if and only if conducted**.
-- Verify actual hosting behaviour, availability and identity/data protection before sharing links.
-- Keep the project described as a synthetic voice-to-referral proof of concept, not a deployed maternal-care service.
+MIT, see [LICENSE](LICENSE).

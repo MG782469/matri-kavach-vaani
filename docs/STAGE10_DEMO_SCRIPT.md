@@ -1,3 +1,5 @@
+> **Superseded:** see [SUBMISSION_KIT.md](SUBMISSION_KIT.md) for the current 60-second demo and final checklist. Kept for history.
+
 # Matri-Kavach Vaani — 3-minute synthetic walkthrough
 
 **Record the full feature demo LOCALLY in the developer's authorised live mode.** Use a fictional reference number, fictional contact, village and non-clinical referral-reason wording. No real medical records.

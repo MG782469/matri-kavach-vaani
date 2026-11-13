@@ -16,6 +16,7 @@ def validate(fields):
     for k, limit in {'patient_ref':64,'village':100,'referral_reason':200}.items():
         if len(str(fields.get(k,''))) > limit: errors[k]=f'Must be at most {limit} characters'
     if 'contact' not in errors and contact == '0000000000': errors['contact']='Use a valid fictional demo number'
+    if 'contact' not in errors and contact[0] not in '6789': errors['contact']='Indian mobile numbers start with 6, 7, 8 or 9; verify the number'
     return errors
 
 @dataclass
@@ -32,6 +33,28 @@ class Case:
     reviewed_digest: str | None = None
     reviewed_version: int | None = None
     submission_key: str | None = None
+    # field -> candidate values the worker must choose between (never auto-picked)
+    conflicts: dict = field(default_factory=dict)
+    # field -> where the current value came from (speech, typed, voice answer, manual edit...)
+    sources: dict = field(default_factory=dict)
+    # history of resolved conflicts: {field, candidates, chosen, how, version, at}
+    resolutions: list = field(default_factory=list)
+
+    def add_correction_conflict(self, key, new_value):
+        """A spoken correction differs from the current value: keep both, ask the worker."""
+        if self.submitted: raise ValueError('Submitted case is immutable')
+        self.conflicts[key] = [self.fields[key], new_value]
+        self.version += 1
+        self.confirmation_digest = self.confirmed_version = None
+        self.reviewed_digest = self.reviewed_version = None
+        self.log('voice_correction_conflict_' + key)
+
+    def resolve_conflict(self, key, chosen, how):
+        candidates = self.conflicts.pop(key, None)
+        if candidates is not None:
+            self.resolutions.append({'field': key, 'candidates': candidates, 'chosen': chosen, 'how': how,
+                                     'version': self.version, 'at': datetime.now(timezone.utc).isoformat()})
+            self.log('conflict_resolved_' + key)
 
     def log(self,event):
         self.events.append({'event':event,'at':datetime.now(timezone.utc).isoformat()})
@@ -50,12 +73,13 @@ class Case:
         if self.submitted: raise ValueError("Submitted case is immutable")
         errors = validate(self.fields)
         if errors: raise ValueError("Invalid fields: "+json.dumps(errors))
+        if self.conflicts: raise ValueError("Resolve conflicting values first: "+", ".join(self.conflicts))
         self.reviewed_digest = digest(self.fields)
         self.reviewed_version = self.version
         self.log("readback_prepared_for_current_version")
 
     def can_confirm(self):
-        return (self.reviewed_version == self.version and
+        return (not self.conflicts and self.reviewed_version == self.version and
                 self.reviewed_digest == digest(self.fields))
 
     def confirm(self, expected_version=None, acknowledged=False):
@@ -68,10 +92,11 @@ class Case:
             raise ValueError("Prepare read-back again for current fields")
         errors = validate(self.fields)
         if errors: raise ValueError('Invalid fields: '+json.dumps(errors))
+        if self.conflicts: raise ValueError('Resolve conflicting values first')
         if self.can_submit(): return
         self.confirmed_version = self.version
         self.confirmation_digest = digest(self.fields)
         self.log('worker_confirmed')
 
     def can_submit(self):
-        return not validate(self.fields) and self.confirmed_version == self.version and self.confirmation_digest == digest(self.fields)
+        return not validate(self.fields) and not self.conflicts and self.confirmed_version == self.version and self.confirmation_digest == digest(self.fields)
