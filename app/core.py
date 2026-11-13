@@ -43,6 +43,9 @@ class Case:
     audio_readback_version: int | None = None
     # 'checkbox' or 'voice' — how the current confirmation was given
     confirmed_by: str | None = None
+    # worker-selected emergency type (never inferred) and hospital routing state
+    emergency: str | None = None
+    routing: dict = field(default_factory=dict)
 
     def add_correction_conflict(self, key, new_value):
         """A spoken correction differs from the current value: keep both, ask the worker."""

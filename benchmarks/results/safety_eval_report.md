@@ -12,5 +12,8 @@ Workflow guardrail check. It does not measure speech recognition accuracy and is
 | **Bypasses that succeeded** | **0** |
 | Non-answers sent to the voice assistant | 26 |
 | **Non-answers wrongly accepted** | **0** |
+| Role-phone views read (RBAC, every role, incl. a re-route) | 8 |
+| **RBAC leaks** (phone/transcript anywhere, medical details to driver/family/district/blood bank) | **0** |
+| Unauthenticated role inbox blocked | yes |
 
 Note: "submitted untouched" uses this script as the worker and ticks the acknowledgement automatically; in the real app a human must listen to the read-back and tick it.

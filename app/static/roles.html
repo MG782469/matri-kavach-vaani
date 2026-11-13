@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5e57">
+<meta name="description" content="Matri-Kavach Vaani role phones: hospital, doctor, blood bank, 108, family and district each see only their part of a referral.">
+<title>Role Phones | Matri-Kavach Vaani</title>
+<style>
+:root{--page:#dfe9e6;--hdr:#0b5e57;--chat:#ece5dd;--in:#fff;--out:#d9fdd3;--ink:#111b21;--ink2:#54656f;--meta:#667781;--accent:#0a8f7e;--accent2:#00a884;
+  --line:#e3e8ea;--card:#f7faf9;--panel:#fff;--warn-bg:#fff4dc;--warn-ink:#7a4e05;--err:#a22a40;--shadow:0 18px 50px rgba(8,45,40,.18)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--page:#0c1317;--hdr:#1f2c33;--chat:#0b141a;--in:#202c33;--out:#0e5a4e;--ink:#e9edef;--ink2:#aebac1;--meta:#8696a0;--accent:#00a884;--line:#2a3942;--card:#18242b;--panel:#111b21;--warn-bg:#3a2f12;--warn-ink:#f5d08a;--err:#ff9aa9}}
+:root[data-theme="dark"]{--page:#0c1317;--hdr:#1f2c33;--chat:#0b141a;--in:#202c33;--out:#0e5a4e;--ink:#e9edef;--ink2:#aebac1;--meta:#8696a0;--accent:#00a884;--line:#2a3942;--card:#18242b;--panel:#111b21;--warn-bg:#3a2f12;--warn-ink:#f5d08a;--err:#ff9aa9}
+*{box-sizing:border-box}html,body{height:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,"Noto Sans Devanagari",Arial,sans-serif}
+button,input{font:inherit;color:inherit}button{cursor:pointer}:focus-visible{outline:3px solid #7fd8c7;outline-offset:2px}
+.wrap{max-width:1180px;margin:auto;padding:20px 16px 40px}
+.top h1{margin:0;font-size:22px}.top p{margin:4px 0 12px;color:var(--ink2);font-size:14px;max-width:820px}
+.top a{color:var(--accent);font-weight:700}
+.switch{display:flex;gap:8px;overflow-x:auto;padding:4px 0 14px;scrollbar-width:thin}
+.switch button,.switch a{flex-shrink:0;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:650;font-size:13.5px;text-decoration:none;white-space:nowrap}
+.switch .on{background:var(--accent2);border-color:var(--accent2);color:#fff}
+.switch .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e5484d;margin-left:6px;vertical-align:middle}
+.grid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:24px;align-items:start}
+.phone{height:min(760px,calc(100dvh - 170px));min-height:520px;display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:var(--chat);box-shadow:var(--shadow)}
+.hdr{display:flex;align-items:center;gap:10px;background:var(--hdr);color:#fff;padding:10px 14px;min-height:60px}
+.av{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:conic-gradient(from 210deg,#18c2a4,#0b7a6f,#0f4f63,#18c2a4)}
+.hdr b{display:block;font-size:15.5px}.hdr small{display:block;font-size:12px;color:#bfe6df}
+.hdr .out{margin-left:auto;background:rgba(255,255,255,.14);border:0;color:#fff;border-radius:999px;padding:6px 10px;font-size:12px}
+.owner{background:var(--warn-bg);color:var(--warn-ink);font-size:12px;text-align:center;padding:6px 10px;font-weight:600}
+.thread{flex:1;overflow-y:auto;padding:12px}
+.msg{max-width:92%;background:var(--in);border-radius:10px;border-top-left-radius:0;padding:9px 11px 6px;margin:0 0 10px;box-shadow:0 1px .5px rgba(0,0,0,.13);animation:pop .18s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.msg h4{margin:0 0 4px;font-size:14px;display:flex;gap:6px;align-items:center}
+.msg .kv{display:grid;grid-template-columns:92px 1fr;gap:2px 8px;font-size:13.5px;margin-top:4px}
+.msg .kv span:nth-child(odd){color:var(--meta)}
+.msg .kv span:nth-child(even){font-weight:600;word-break:break-word}
+.msg .note{font-size:11.5px;color:var(--meta);margin-top:6px}
+.msg .time{text-align:right;font-size:11px;color:var(--meta);margin-top:4px}
+.pill{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:1px 8px;border:1px solid}
+.pill.asked{background:#fff1d6;color:#8a5410;border-color:#f0d39e}.pill.confirmed,.pill.arrived{background:#e3f6ee;color:#13684f;border-color:#b5e2cf}
+.pill.moved_to_another_hospital,.pill.no_hospital{background:#fff1f3;color:#a22a40;border-color:#f3c5cd}
+.btns{margin:8px -11px -6px;border-top:1px solid var(--line)}
+.btns button{display:block;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:10px;color:var(--accent);font-weight:700}
+.btns button:first-child{border-top:0}.btns button.danger{color:var(--err)}
+.btns button:disabled{opacity:.5}
+.empty{margin:30px 16px;text-align:center;color:var(--meta);font-size:14px}
+.timer{font-variant-numeric:tabular-nums;font-weight:800;color:#8a5410}
+.login{flex:1;display:flex;flex-direction:column;justify-content:center;gap:12px;padding:24px;background:var(--panel)}
+.login h3{margin:0;font-size:18px}.login p{margin:0;color:var(--ink2);font-size:13.5px}
+.login input{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--in);font-size:18px;letter-spacing:.2em;text-align:center}
+.login .primary{border:0;border-radius:24px;background:var(--accent2);color:#fff;font-weight:700;padding:12px}
+.login .code{background:var(--warn-bg);color:var(--warn-ink);border-radius:10px;padding:10px;font-size:13px}
+.side{background:var(--panel);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow)}
+.side h2{margin:0 0 4px;font-size:17px}.side .sub{color:var(--meta);font-size:12.5px;margin:0 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--meta);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em}
+tr.me td{background:rgba(0,168,132,.09);font-weight:600}
+.err{color:var(--err);font-size:13px}
+.legal{font-size:12px;color:var(--warn-ink);background:var(--warn-bg);border-radius:10px;padding:10px 12px;margin-top:14px}
+@media (max-width: 860px){.grid{grid-template-columns:1fr}.phone{height:72dvh}}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Role phones · कौन क्या देखता है</h1>
+    <p>Everyone in the referral talks to one Matri-Kavach Vaani number. Pick a phone, log in with its one-time code, and see <b>only that role's part</b> of the case. The server filters every view; nothing is hidden in the browser. The nurse or ASHA creates the referral in the <a href="/chat">chat view</a>. Synthetic numbers and data only.</p>
+  </div>
+  <nav class="switch" id="switch" aria-label="Switch phone"></nav>
+  <div class="grid">
+    <section class="phone" aria-label="Role phone">
+      <header class="hdr"><div class="av" aria-hidden="true">V</div><div><b id="hname">Matri-Kavach Vaani</b><small id="hsub">Choose a phone above</small></div><button class="out" id="logout" type="button" hidden>Log out</button></header>
+      <div class="owner" id="owner">📱 Phone of …</div>
+      <div class="thread" id="thread" aria-live="polite"></div>
+    </section>
+    <aside class="side">
+      <h2>Who sees what</h2>
+      <p class="sub">Same rules as Matri-Kavach. Enforced on the server, per role.</p>
+      <table><thead><tr><th>Role</th><th>Sees</th></tr></thead><tbody id="whoTable"></tbody></table>
+      <p class="legal">Assistive, never diagnostic. Doctors define readiness, and humans choose the emergency type. Hospital readiness, distances and stock are fictional. Checklists come from Matri-Kavach and were reviewed by clinical advisor Moluvi Gufran. Obstetrician validation is needed before any pilot.</p>
+    </aside>
+  </div>
+</div>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const ROLE_ICON = {dh:'🏥', sdh:'🏥', chc:'🏥', mc:'🏥', doctor:'🩺', bloodbank:'🩸', driver:'🚑', emt:'🧑‍⚕️', family:'👪', district:'🏛', nurse:'💬'};
+const STATUS = {asked:'Waiting for hospital', confirmed:'Hospital confirmed', arrived:'Arrived', moved_to_another_hospital:'Moved to another hospital', no_hospital:'No ready hospital', not_routed:'Not routed'};
+let roles = [], who = {}, current = null, timer = null, busy = false;
+const tokenKey = r => 'vaani_role_token_' + r;
+const getToken = r => { try { return sessionStorage.getItem(tokenKey(r)); } catch (e) { return null; } };
+const setToken = (r, t) => { try { t ? sessionStorage.setItem(tokenKey(r), t) : sessionStorage.removeItem(tokenKey(r)); } catch (e) {} };
+
+async function api(path, method = 'GET', body, token) {
+  const opt = {method, headers: {}};
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  if (token) opt.headers.Authorization = 'Bearer ' + token;
+  const r = await fetch(path, opt), txt = await r.text();
+  let j; try { j = JSON.parse(txt); } catch { j = {detail: txt}; }
+  if (!r.ok) { const e = new Error(typeof j.detail === 'string' ? j.detail : 'Request failed'); e.status = r.status; throw e; }
+  return j;
+}
+function whoKey(role) { return ['dh', 'sdh', 'chc', 'mc'].includes(role) ? 'hospital' : role; }
+
+function renderSwitch() {
+  $('switch').innerHTML = '<a href="/chat" title="The nurse / ASHA creates referrals in the chat view">' + ROLE_ICON.nurse + ' Nurse / ASHA</a>' +
+    roles.filter(r => r.role !== 'nurse').map(r => '<button type="button" data-role="' + r.role + '" class="' + (current === r.role ? 'on' : '') + '">' + (ROLE_ICON[r.role] || '📱') + ' ' + esc(r.label.replace(' labour room', '').replace(' duty phone', '').replace(' emergency desk', '')) + '</button>').join('');
+  $('switch').querySelectorAll('button').forEach(b => b.onclick = () => choose(b.dataset.role));
+}
+function renderWho() {
+  const rows = [['nurse', 'Nurse / ASHA'], ['hospital', 'Hospital'], ['doctor', 'Doctor'], ['bloodbank', 'Blood bank'], ['driver', '108 driver'], ['emt', '108 EMT'], ['family', 'Family'], ['district', 'District']];
+  $('whoTable').innerHTML = rows.map(([k, n]) => '<tr class="' + (current && whoKey(current) === k ? 'me' : '') + '"><td>' + (ROLE_ICON[k === 'hospital' ? 'dh' : k] || '') + ' ' + n + '</td><td>' + esc(who[k] || '') + '</td></tr>').join('');
+}
+function choose(role) {
+  current = role; clearInterval(timer);
+  const r = roles.find(x => x.role === role);
+  $('hname').textContent = 'Matri-Kavach Vaani'; $('hsub').textContent = r.label;
+  $('owner').textContent = '📱 Phone of ' + r.label + ' · ' + r.phone + ' (synthetic)';
+  renderSwitch(); renderWho();
+  getToken(role) ? openInbox() : loginScreen(r);
+}
+function loginScreen(r) {
+  $('logout').hidden = true;
+  $('thread').innerHTML = '<div class="login"><h3>' + (ROLE_ICON[r.role] || '📱') + ' Log in as ' + esc(r.label) + '</h3><p>Phone <b>' + esc(r.phone) + '</b> (synthetic). Matri-Kavach Vaani sends a one-time code. In this demo the code is shown on screen.</p><button class="primary" id="sendCode" type="button">Send code</button><div id="codeBox"></div></div>';
+  $('sendCode').onclick = async () => {
+    try {
+      const x = await api('/api/role/login', 'POST', {role: r.role});
+      $('codeBox').innerHTML = '<p class="code">📩 Demo SMS: your code is <b>' + esc(x.demo_code) + '</b></p><input id="code" inputmode="numeric" maxlength="6" aria-label="One-time code" value="' + esc(x.demo_code) + '"><button class="primary" id="verify" type="button" style="margin-top:10px;width:100%">Verify and open</button><p class="err" id="lerr"></p>';
+      $('verify').onclick = async () => {
+        try { const v = await api('/api/role/verify', 'POST', {role: r.role, code: $('code').value.trim()}); setToken(r.role, v.token); openInbox(); }
+        catch (e) { $('lerr').textContent = e.message; }
+      };
+    } catch (e) { $('codeBox').innerHTML = '<p class="err">' + esc(e.message) + '</p>'; }
+  };
+}
+async function openInbox() {
+  $('logout').hidden = false;
+  $('logout').onclick = () => { setToken(current, null); choose(current); };
+  await refresh();
+  clearInterval(timer); timer = setInterval(refresh, 2500);
+}
+function kv(pairs) { return '<div class="kv">' + pairs.filter(p => p[1] !== undefined && p[1] !== null && p[1] !== '').map(([k, v]) => '<span>' + k + '</span><span>' + esc(v) + '</span>').join('') + '</div>'; }
+function card(role, c) {
+  const pill = '<span class="pill ' + esc(c.status) + '">' + esc(STATUS[c.status] || c.status) + '</span>';
+  const head = t => '<h4>' + t + ' ' + pill + '</h4>';
+  let html = '';
+  if (['dh', 'sdh', 'chc', 'mc'].includes(role)) {
+    const left = c.reply_deadline ? Math.max(0, Math.round(c.reply_deadline - Date.now() / 1000)) : null;
+    html = head('🚨 Referral request · ' + esc(c.case_id)) + kv([['Emergency', c.emergency], ['Needs', (c.needs || []).join(', ')], ['Reference', c.patient_ref], ['From', c.village], ['Reason', c.reason], ['ETA', c.eta_min ? '~' + c.eta_min + ' min' : null], ['Approved', c.approved_by]])
+      + (c.asked ? '<div class="note">Reply within <span class="timer" data-deadline="' + c.reply_deadline + '">' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + '</span>. If there is no reply, Vaani asks the backup hospital.</div>' : '')
+      + '<div class="note">' + esc(c.review || '') + '</div>';
+  } else if (role === 'doctor') {
+    html = c.expired ? head('🩺 Summary expired · ' + esc(c.case_id)) + '<div class="note">The private summary link expired 2 hours after confirmation.</div>'
+      : head('🩺 Private summary · ' + esc(c.case_id)) + kv([['Emergency', c.emergency], ['Reference', c.patient_ref], ['Reason', c.reason], ['Hospital', c.hospital], ['ETA', c.eta_min ? '~' + c.eta_min + ' min' : null]]) + '<div class="note">Expires ' + new Date(c.summary_expires_at * 1000).toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) + '.</div>';
+  } else if (role === 'bloodbank') {
+    html = head('🩸 Prepare blood · ' + esc(c.case_id)) + kv([['Emergency', c.emergency], ['Hospital', c.hospital]]) + '<div class="note">Blood group is not collected by Vaani; follow the hospital\'s cross-match protocol.</div>';
+  } else if (role === 'driver') {
+    html = head('🚑 Pickup · ' + esc(c.case_id)) + kv([['Pickup', c.pickup], ['Drop', c.hospital], ['ETA', c.eta_min ? '~' + c.eta_min + ' min' : null], ['Map', c.map]]) + '<div class="note">No medical details for the driver.</div>';
+  } else if (role === 'emt') {
+    html = head('🧑‍⚕️ Care on the way · ' + esc(c.case_id)) + kv([['Emergency', c.emergency], ['Reason', c.reason], ['Pickup', c.pickup], ['Hospital', c.hospital], ['ETA', c.eta_min ? '~' + c.eta_min + ' min' : null]]);
+  } else if (role === 'family') {
+    html = head('👪 Update · ' + esc(c.case_id)) + '<div lang="hi" style="font-size:14.5px">आपकी मरीज़ को <b>' + esc(c.hospital || 'अस्पताल') + '</b> ले जाया जा रहा है' + (c.eta_min ? ', लगभग ' + c.eta_min + ' मिनट में पहुँचेंगी' : '') + '।</div><div class="note">Hospital and ETA only. No medical details.</div>';
+  } else if (role === 'district') {
+    html = head('🏛 Case ' + esc(c.case_id)) + kv([['Emergency', c.emergency], ['Hospital', c.hospital], ['Hospitals asked', c.asked_count]]) + ((c.alerts || []).length ? '<div class="note" style="color:var(--err)">⚠ ' + c.alerts.map(esc).join('<br>⚠ ') + '</div>' : '') + '<div class="note">No patient name, reference, village or phone.</div>';
+  }
+  const actions = c.actions || [];
+  const ACT = {confirm: ['✓ Ready: accept the patient', ''], not_ready: ['✗ Not ready tonight', 'danger'], arrived: ['🏁 Patient arrived', ''], skip_wait: ['⏩ Skip 2 minutes (demo: no reply)', '']};
+  const btns = actions.length ? '<div class="btns">' + actions.map(a => '<button type="button" class="' + ACT[a][1] + '" data-act="' + a + '" data-ref="' + esc(c.case_id) + '">' + ACT[a][0] + '</button>').join('') + '</div>' : '';
+  return '<div class="msg">' + html + btns + '<div class="time">' + new Date().toLocaleTimeString('en-IN', {hour: '2-digit', minute: '2-digit'}) + '</div></div>';
+}
+async function refresh() {
+  if (!current || busy) return;
+  const role = current;
+  try {
+    const x = await api('/api/role/inbox', 'GET', undefined, getToken(role));
+    if (role !== current) return;
+    const keep = $('thread').scrollTop;
+    $('thread').innerHTML = x.cases.length ? x.cases.map(c => card(role, c)).join('')
+      : '<div class="empty">' + (ROLE_ICON[role] || '') + ' No messages for this phone yet.<br><small>Create and send a referral in the <a href="/chat">chat view</a>. This phone only sees cases that involve it.</small></div>';
+    $('thread').scrollTop = keep;
+    $('thread').querySelectorAll('[data-act]').forEach(b => b.onclick = () => act(b.dataset.ref, b.dataset.act, b));
+  } catch (e) {
+    if (e.status === 401) { setToken(role, null); loginScreen(roles.find(r => r.role === role)); clearInterval(timer); }
+  }
+}
+async function act(ref, action, btn) {
+  busy = true; btn.disabled = true;
+  try { await api('/api/role/cases/' + encodeURIComponent(ref) + '/act', 'POST', {action}, getToken(current)); }
+  catch (e) { alert(e.message); }
+  finally { busy = false; refresh(); }
+}
+setInterval(() => document.querySelectorAll('.timer[data-deadline]').forEach(el => { const left = Math.max(0, Math.round(+el.dataset.deadline - Date.now() / 1000)); el.textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0'); }), 1000);
+try { const th = localStorage.getItem('vaani_theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
+api('/api/roles').then(x => {
+  roles = x.roles; who = x.who_sees_what;
+  renderSwitch(); renderWho();
+  const want = new URLSearchParams(location.search).get('role');
+  choose(roles.some(r => r.role === want) ? want : 'dh');
+});
+</script>
+</body>
+</html>

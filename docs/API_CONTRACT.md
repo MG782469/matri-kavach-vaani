@@ -47,5 +47,23 @@ Interactive explorer: `http://localhost:8000/docs`. Synthetic data only. There i
 - `POST /api/cases/{id}/submit`: JSON body `{"expected_version": n, "idempotency_key": "..."}`. Creates a simulated `DEMO-*` referral. Retrying with the same key returns the same referral. A different key after submission returns 409.
 - `POST /api/cases/{id}/handoff/demo`: isolated Matri-Kavach Express demo session (scenario only, no patient fields). Disabled in public mode.
 
+## Emergency and routing
+- `POST /api/cases/from-transcript` and `/from-audio` accept an optional `emergency` (`bleeding|fits|obstructed|aph|sepsis|newborn`), chosen by the worker.
+- `POST /api/cases/{id}/emergency`: JSON body `{"emergency": "bleeding"}`. Allowed until submission.
+- `GET /api/routing/readiness/{emergency}`: every facility with `ready` / `missing` items, plus `proposed`, `backup` and the checklist review note.
+- `POST /api/cases/{id}/routing/send`: JSON body `{"expected_version": n}`. Allowed only after submission. Asks the nearest ready hospital. Idempotent.
+- `POST /api/cases/{id}/routing/skip`: demo control that pretends the 2-minute reply window has passed. Reading a case also applies the timer lazily.
+- The case view includes `emergency`, `emergency_label` and `routing` (`status`: asked, confirmed, arrived or no_hospital, plus `target_name`, `backup_name`, `eta_min`, `ambulance`, `notified`, `alerts` and `history`).
+
+## Role phones (RBAC)
+- `GET /api/roles`: lists the roles and the who-sees-what rules.
+- `POST /api/role/login`: JSON body `{"role": "dh"}`. Returns `demo_code`, a one-time code shown on screen in this demo.
+- `POST /api/role/verify`: JSON body `{"role": "dh", "code": "123456"}`. Returns a signed token that lasts 8 hours.
+- `GET /api/role/inbox` with `Authorization: Bearer <token>`: allow-listed views of only the cases that involve this role. No role ever receives the contact number or transcript.
+- `POST /api/role/cases/{CASE_REF}/act`: JSON body `{"action": ...}`.
+  - A hospital can use `confirm`, `not_ready` or `arrived`, and only for a case where it is the asked or confirmed hospital.
+  - The district can use `skip_wait`.
+  - Any other combination returns 403.
+
 ## Service
 - `GET /api/health` and `GET /api/config` (`mode`, `prisma_live`, `timbre_live`, `stt_profile`). The key is never exposed.

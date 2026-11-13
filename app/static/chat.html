@@ -277,6 +277,7 @@ button{cursor:pointer}
     <div class="section"><h3>Emergency · worker-selected</h3><div id="emerBox" class="empty">Not chosen yet. The worker picks it from the Matri-Kavach list. Vaani never diagnoses.</div></div>
     <div class="section"><h3>Fields · verification state</h3><div id="fieldsBox" class="empty">Fields appear after the first message.</div></div>
     <div class="section"><h3>Evidence passport</h3><div id="passportBox" class="empty">What was heard, changed and approved — no patient values.</div></div>
+    <div class="section"><h3>Who sees what</h3><div class="kv"><span>Hospital</span><span>Emergency, needs, ref, village, reason, ETA</span></div><div class="kv"><span>108 driver</span><span>Pickup, hospital, route only</span></div><div class="kv"><span>Family</span><span>Hospital and ETA only</span></div><div class="kv"><span>District</span><span>Case ID, status, alerts</span></div><div class="kv"><span>Phone number</span><span>Only you (nurse/ASHA)</span></div><div class="links"><a href="/roles" target="_blank" rel="noopener">👥 Open role phones</a></div></div>
     <div class="section"><h3>Voice settings</h3>
       <label class="toggle" for="autoplay"><input type="checkbox" id="autoplay" checked>Auto-play Timbre voice notes</label>
       <label class="toggle" for="handsfree"><input type="checkbox" id="handsfree" checked>Hands-free: after Vaani speaks a question, start listening automatically</label>
@@ -362,6 +363,12 @@ const T = {
     b_handoff:'🔗 मातृ-कवच demo case खोलें', b_skip:'छोड़ें',
     linked:'मातृ-कवच demo linked', linked_note:'कोई मरीज़ जानकारी नहीं भेजी गई · कोई सूचना नहीं भेजी गई',
     done:'धन्यवाद! नया रेफ़रल शुरू करने के लिए ➕ दबाएँ।', b_new:'➕ नया रेफ़रल',
+    route_title:'🏥 आज रात की तैयारी · {x}', route_ready:'तैयार', route_missing:'नहीं: {m}',
+    route_plan:'सबसे नज़दीकी तैयार अस्पताल: {p} (~{eta} मिनट) · बैकअप: {b}',
+    b_route:'📤 SEND — {p} से पूछें', route_asked:'{p} से पूछा गया। 2 मिनट में जवाब नहीं आया तो वाणी बैकअप अस्पताल से पूछेगी।',
+    b_roles:'👥 रोल फ़ोन देखें', route_rerouted:'⚠ {old}: {why} — अब {p} से पूछा गया।', why_not_ready:'तैयार नहीं', why_no_reply:'2 मिनट में जवाब नहीं',
+    route_ok:'✓ {p} ने मरीज़ को स्वीकार किया', route_ok_note:'{amb} · ETA ~{eta} मिनट · सूचना: {who} — हर किसी को सिर्फ़ उसका हिस्सा',
+    route_none:'⚠ आज रात कोई तैयार अस्पताल नहीं मिला। जिला कंट्रोल रूम को कॉल करें।', arrived:'🏁 मरीज़ {p} पहुँच गईं।', b_mk:'🔗 मातृ-कवच demo case भी खोलें',
     use_buttons:'नीचे दिए बटन से आगे बढ़ें।', reason_chip:'कारण: {x}', speak_answer:'🎙 बोलकर जवाब दें', type_answer:'✍ नीचे लिखकर जवाब दें'
   },
   en: {
@@ -392,6 +399,12 @@ const T = {
     b_handoff:'🔗 Open Matri-Kavach demo case', b_skip:'Skip',
     linked:'Matri-Kavach demo linked', linked_note:'No patient data forwarded · no notifications sent',
     done:'Thank you! Tap ➕ to start a new referral.', b_new:'➕ New referral',
+    route_title:'🏥 Tonight\'s readiness · {x}', route_ready:'ready', route_missing:'missing: {m}',
+    route_plan:'Nearest ready hospital: {p} (~{eta} min) · backup: {b}',
+    b_route:'📤 SEND: ask {p}', route_asked:'Asked {p}. If there is no reply in 2 minutes, Vaani asks the backup hospital.',
+    b_roles:'👥 Open role phones', route_rerouted:'⚠ {old}: {why}. Now asking {p}.', why_not_ready:'not ready', why_no_reply:'no reply in 2 min',
+    route_ok:'✓ {p} accepted the patient', route_ok_note:'{amb} · ETA ~{eta} min · told: {who}. Each sees only their part',
+    route_none:'⚠ No ready hospital tonight. Call the district control room.', arrived:'🏁 The patient reached {p}.', b_mk:'🔗 Also open the Matri-Kavach demo case',
     use_buttons:'Please use the buttons below to continue.', reason_chip:'Reason: {x}', speak_answer:'🎙 Answer by voice', type_answer:'✍ Type the answer below'
   }
 };
@@ -556,12 +569,12 @@ function openList() {
 function closeList() { $('lscrim').classList.remove('open'); $('lsheet').classList.remove('open'); }
 
 /* ================= side panel ================= */
-const STEP_NAMES = ['Emergency','Details','Clarify','Read back','Confirm','Send','Handoff'];
+const STEP_NAMES = ['Emergency','Details','Clarify','Read back','Confirm','Send','Hospital'];
 function stepIndex(x) {
   if (!emergency) return 0;
   if (!x) return 1;
   const ev = (x.events || []).map(e => e.event);
-  if (ev.includes('matri_demo_handoff_created')) return 7;
+  if (x.routing && ['confirmed', 'arrived'].includes(x.routing.status)) return 7;
   if (x.submitted) return 6;
   if (x.confirmed) return 5;
   if (x.readback_ready) return 4;
@@ -584,7 +597,8 @@ function renderSide(x) {
     ['Read-back (this version)', yn(e.readback_current_version, e.audio_readback_current_version ? 'Yes · Timbre audio' : 'Yes · text', 'Not yet')],
     ['Approved version', yn(e.worker_confirmed_version !== null && e.worker_confirmed_version !== undefined, 'v' + e.worker_confirmed_version + (e.confirmed_by === 'voice' ? ' · by voice 🎙' : ' · tap'), 'Not yet')],
     ['Simulated referral', yn(e.submitted, esc(e.referral_id || ''), 'Not submitted')],
-    ['Handoff', e.handoff === 'not_linked' || !e.handoff ? 'Not linked' : 'Isolated demo only']
+    ['Hospital', x.routing ? (x.routing.status === 'confirmed' || x.routing.status === 'arrived' ? '<span class="ok">' + esc(x.routing.target_name) + ' ✓</span>' : x.routing.status === 'asked' ? 'Asking ' + esc(x.routing.target_name) + '…' : '<span class="no">No ready hospital</span>') : 'Not sent'],
+    ['Matri-Kavach demo', e.handoff === 'not_linked' || !e.handoff ? 'Not linked' : 'Isolated demo only']
   ];
   $('passportBox').className = '';
   $('passportBox').innerHTML = rows.map(r => '<div class="kv"><span>' + r[0] + '</span><span>' + r[1] + '</span></div>').join('');
@@ -657,7 +671,7 @@ async function startGuided() {
   botText(t('guided_hint'));
   showTyping();
   // A draft with no spoken details yet: the clarification loop then asks each field in turn.
-  const x = await api('/api/cases/from-transcript', 'POST', {transcript: 'Guided referral · ' + emergency.en});
+  const x = await api('/api/cases/from-transcript', 'POST', {transcript: 'Guided referral · ' + emergency.en, emergency: emergency.id});
   c = x; renderSide(x);
   await afterDraft(x, false);
 }
@@ -698,8 +712,8 @@ async function handleInput({text, wav, file}) {
     if (stage === 'details' || !c) {
       showTyping(spoken ? 'listening…' : 'typing…');
       let x;
-      if (spoken) { const f = new FormData(); f.append('file', wav || file, (file && file.name) || 'referral.wav'); x = await api('/api/cases/from-audio', 'POST', f); setHeard(x.transcript); }
-      else x = await api('/api/cases/from-transcript', 'POST', {transcript: text});
+      if (spoken) { const f = new FormData(); f.append('file', wav || file, (file && file.name) || 'referral.wav'); if (emergency) f.append('emergency', emergency.id); x = await api('/api/cases/from-audio', 'POST', f); setHeard(x.transcript); }
+      else x = await api('/api/cases/from-transcript', 'POST', {transcript: text, emergency: emergency ? emergency.id : undefined});
       markRead(row); c = x; renderSide(x);
       await afterDraft(x, true);
     } else if (stage === 'clarify') {
@@ -837,12 +851,55 @@ async function submitReferral() {
   const x = await api('/api/cases/' + c.id + '/submit', 'POST', {expected_version: c.version, idempotency_key: 'chat-' + c.id + '-v' + c.version});
   markRead(row); c = x; renderSide(x);
   botHtml('<div class="ok-card"><div class="big">📨</div><div><b>' + esc(t('ref_ok')) + '</b><br><span class="mono">' + esc(x.referral_id) + '</span><br><span style="color:var(--meta);font-size:12.5px">' + esc(t('ref_note')) + '</span></div></div>' + fieldsCard(x, '🧾 Approved referral'));
-  stage = 'handoff';
-  botButtons(fmt(t('handoff_q'), {x: emerName(emergency)}), [[t('b_handoff'), () => guarded(handoff)], [t('b_skip'), () => done()]]);
-  chips([[t('b_handoff'), () => guarded(handoff), 'primary'], [t('b_skip'), () => done()]]);
+  await routePlan();
 }
+/* ---- Hospital routing (Matri-Kavach style): readiness → SEND → hospital replies live ---- */
+const WHO_LABEL = {driver:'108 driver', emt:'108 EMT', doctor:'doctor', family:'family', bloodbank:'blood bank'};
+let routeTimer = null, lastRoute = null;
+async function routePlan() {
+  stage = 'route';
+  const r = await api('/api/routing/readiness/' + emergency.id);
+  const rows = r.facilities.map(f => '<div class="frow"><span class="k">' + esc(f.name) + '<br><small>' + f.km + ' km</small></span><span class="v">' + (f.ready ? '<span class="st confirmed">✓ ' + esc(t('route_ready')) + '</span>' : '<span class="st missing">✗ ' + esc(fmt(t('route_missing'), {m: f.missing.join(', ')})) + '</span>') + (f.id === r.proposed ? ' <span class="st read_back">→ first</span>' : f.id === r.backup ? ' <span class="st needs_readback">backup</span>' : '') + '</span></div>').join('');
+  botHtml(label('Matri-Kavach routing') + '<div class="card"><h4><span>' + esc(fmt(t('route_title'), {x: emerName(emergency)})) + '</span></h4>' + rows + '<div class="small-note">' + esc(r.review) + '</div></div>');
+  if (!r.proposed) { botText(t('route_none'), {err: true}); return routeDone(); }
+  const P = r.facilities.find(f => f.id === r.proposed), B = r.facilities.find(f => f.id === r.backup);
+  botButtons(fmt(t('route_plan'), {p: P.name, eta: P.eta_min, b: B ? B.name : '—'}), [[fmt(t('b_route'), {p: P.name}), () => guarded(sendToHospital)]]);
+  chips([[fmt(t('b_route'), {p: P.name}), () => guarded(sendToHospital), 'primary']]);
+}
+async function sendToHospital() {
+  const row = userText('📤 SEND');
+  showTyping();
+  const x = await api('/api/cases/' + c.id + '/routing/send', 'POST', {expected_version: c.version});
+  markRead(row); c = x; renderSide(x); lastRoute = null;
+  routeUpdate(x.routing);
+  chips([[t('b_roles'), () => window.open('/roles?role=' + x.routing.target, '_blank'), 'primary']]);
+  clearInterval(routeTimer); routeTimer = setInterval(pollRoute, 3000);
+}
+async function pollRoute() {
+  if (!c || busy) return;
+  try { const x = await api('/api/cases/' + c.id); c = x; renderSide(x); routeUpdate(x.routing); } catch (e) {}
+}
+function routeUpdate(r) {
+  if (!r) return;
+  const key = r.status + '|' + r.target;
+  if (key === lastRoute) return;
+  const prev = lastRoute; lastRoute = key;
+  if (r.status === 'asked') {
+    const h = r.history[r.history.length - 1];
+    if (prev && h) botText(fmt(t('route_rerouted'), {old: h.facility, why: h.outcome === 'not_ready' ? t('why_not_ready') : t('why_no_reply'), p: r.target_name}), {label: true});
+    else botText(fmt(t('route_asked'), {p: r.target_name}), {label: true, extra: '<span class="small-note"><a href="/roles?role=' + esc(r.target) + '" target="_blank" rel="noopener">' + esc(t('b_roles')) + ' →</a></span>'});
+  } else if (r.status === 'confirmed') {
+    botHtml('<div class="ok-card"><div class="big">🏥</div><div><b>' + esc(fmt(t('route_ok'), {p: r.target_name})) + '</b><br><span style="color:var(--meta);font-size:12.5px">' + esc(fmt(t('route_ok_note'), {amb: r.ambulance, eta: r.eta_min, who: r.notified.map(w => WHO_LABEL[w] || w).join(', ')})) + '</span></div></div>');
+    chips([[t('b_roles'), () => window.open('/roles?role=driver', '_blank'), 'primary'], [t('b_mk'), () => guarded(handoff)], [t('b_new'), () => newReferral()]]);
+  } else if (r.status === 'arrived') {
+    botText(fmt(t('arrived'), {p: r.target_name}), {label: true}); routeDone();
+  } else if (r.status === 'no_hospital') {
+    botText(t('route_none'), {err: true}); routeDone();
+  }
+}
+function routeDone() { clearInterval(routeTimer); routeTimer = null; stage = 'handoff'; chips([[t('b_mk'), () => guarded(handoff)], [t('b_new'), () => newReferral(), 'primary']]); }
 async function handoff() {
-  if (stage !== 'handoff') return;
+  if (!c || !c.submitted || !emergency) return;
   const row = userText(t('b_handoff'));
   showTyping();
   const r = await api('/api/cases/' + c.id + '/handoff/demo', 'POST', {expected_version: c.version, scenario: emergency.id, acknowledged_synthetic_only: true});
@@ -903,6 +960,7 @@ function newReferral() {
   if (rec) rec.cancel();
   document.querySelectorAll('audio').forEach(a => a.pause());
   closeList(); openSheet(false);
+  clearInterval(routeTimer); routeTimer = null; lastRoute = null;
   c = null; emergency = null; fixField = null; stage = 'hello';
   resetThread(); renderSide(null);
   if (sessionStarted) { botText(lang === 'hi' ? 'नया रेफ़रल।' : 'New referral.', {label: true}); askEmergency(); }

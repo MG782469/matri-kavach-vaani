@@ -40,7 +40,7 @@ def _match_unique(text, patterns, transform=lambda x: x):
 # the word 'number' or the contact number as the patient reference.
 _ID = [
     r'\bpatient\s*(?:id|reference(?:\s*(?:number|no))?|ref(?:\s*(?:number|no))?)\s*(?:is|hai|है|:|-)?\s*(?P<value>[A-Za-z0-9][A-Za-z0-9_-]{0,29})',
-    r'(?:पेशेंट(?:्स)?|मरीज|मरीज़|रोगी)\s*(?:का|की|के)?\s*(?:रेफरेंस|रिफरेंस|संदर्भ|आईडी)\s*(?:नंबर|नम्बर|संख्या)?\s*(?:है|:|-)?\s*(?P<value>[A-Za-z0-9][A-Za-z0-9_-]{0,29})',
+    r'(?:पेशेंट(?:्स)?|मरीज|मरीज़|रोगी)\s*(?:का|की|के)?\s*(?:र[ेि]फ़?रेंस|संदर्भ|आईडी)\s*(?:नंबर|नम्बर|संख्या)?\s*(?:है|:|-)?\s*(?P<value>[A-Za-z0-9][A-Za-z0-9_-]{0,29})',
 ]
 
 # Match either "village Rampur" or "Rampur gaon se hai". In both forms the
@@ -112,7 +112,7 @@ def _contact_digits(s):
 # ---------------------------------------------------------------------------
 _L = r'A-Za-z\u0900-\u097F'
 _ID_NATURAL = [
-    r'(?:\b(?:id|reference|ref)\b|आईडी|रेफरेंस|रिफरेंस)\s*(?:number|no|नंबर|नम्बर)?\s*(?:is|hai|है|:|-)?\s*'
+    r'(?:\b(?:id|reference|ref)\b|आईडी|र[ेि]फ़?रेंस)\s*(?:number|no|नंबर|नम्बर)?\s*(?:is|hai|है|:|-)?\s*'
     r'(?P<value>[A-Za-z]{0,10}-?[0-9][A-Za-z0-9_-]{0,29})',
 ]
 _VILLAGE_NATURAL = [

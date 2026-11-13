@@ -104,6 +104,10 @@ class PrismaStyleExtractionTests(unittest.TestCase):
         # Ordinary words like "एक मरीज़" are not digit runs.
         self.assertEqual(parse_transcript('एक मरीज़ है, संपर्क नंबर 9876543210')['contact'], '9876543210')
 
+    def test_reference_with_or_without_nukta(self):
+        for t in ('मरीज़ का रेफ़रेंस नंबर 1024 है', 'मरीज़ का रेफरेंस नंबर 1024 है', 'रामपुर की मरीज़ है, रेफ़रेंस 1024'):
+            self.assertEqual(parse_transcript(t)['patient_ref'], '1024', t)
+
     def test_reason_without_colon(self):
         self.assertEqual(parse_transcript('referral reason hospital checkup.')['referral_reason'], 'hospital checkup')
 

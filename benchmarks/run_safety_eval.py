@@ -143,12 +143,47 @@ def non_answer_sweep(client):
     return {'tried': len(NON_ANSWERS) * 2, 'wrongly_accepted': accepted}
 
 
+def rbac_leak_sweep(client):
+    """Route a referral (incl. a re-route) and read it from EVERY role phone.
+    A leak = the contact number or transcript in any role view, or medical details
+    for roles that must not see them (driver, family, district, blood bank)."""
+    from app import rbac
+    t = 'Patient ID: LEAK-1, village: Rampur, contact: 9876543210, reason: heavy bleeding after delivery'
+    x = client.post('/api/cases/from-transcript', json={'transcript': t, 'emergency': 'bleeding'}).json()
+    u = '/api/cases/' + x['id']; ref = x['id'][:8].upper()
+    client.post(u + '/readback'); client.post(u + '/confirm', json={'expected_version': 0, 'acknowledged': True})
+    client.post(u + '/submit', json={'expected_version': 0, 'idempotency_key': 'leak-sweep-01'})
+    client.post(u + '/routing/send', json={'expected_version': 0})
+
+    def tok(role):
+        code = client.post('/api/role/login', json={'role': role}).json()['demo_code']
+        return {'Authorization': 'Bearer ' + client.post('/api/role/verify', json={'role': role, 'code': code}).json()['token']}
+    toks = {r: tok(r) for r in rbac.ROLES}
+    client.post(f'/api/role/cases/{ref}/act', json={'action': 'not_ready'}, headers=toks['dh'])
+    client.post(f'/api/role/cases/{ref}/act', json={'action': 'confirm'}, headers=toks['sdh'])
+    leaks, views = [], 0
+    no_medical = {'driver', 'family', 'district', 'bloodbank'}
+    for role, h in toks.items():
+        for v in client.get('/api/role/inbox', headers=h).json()['cases']:
+            views += 1
+            blob = repr(v)
+            if '9876543210' in blob or 'Patient ID: LEAK-1' in blob: leaks.append((role, 'contact/transcript'))
+            if role in no_medical and ({'reason', 'patient_ref'} & set(v)): leaks.append((role, 'medical details'))
+            if role == 'district' and 'village' in v: leaks.append((role, 'village'))
+    unauth = client.get('/api/role/inbox').status_code == 401
+    return {'role_views_checked': views, 'leaks': leaks, 'unauthenticated_blocked': unauth}
+
+
 def run():
     client, _ = make_client()
     sweep = fixture_sweep(client)
     bypass = bypass_attempts(client)
     non = non_answer_sweep(client)
+    leak = rbac_leak_sweep(client)
     return {
+        'rbac_role_views_checked': leak['role_views_checked'],
+        'rbac_leaks': leak['leaks'],
+        'rbac_unauthenticated_blocked': leak['unauthenticated_blocked'],
         'fixture_cases': len(sweep),
         'submitted_untouched': sum(r['submitted'] for r in sweep),
         'held_for_worker_review': sum(r['held_for_review'] for r in sweep),
@@ -173,7 +208,10 @@ def write_report(r):
              f"| Bypass attempts (skip read-back, stale version, open conflict, voice-confirm tricks, ...) | {r['bypass_attempts']} |",
              f"| **Bypasses that succeeded** | **{len(r['bypasses_succeeded'])}** |",
              f"| Non-answers sent to the voice assistant | {r['non_answers_tried']} |",
-             f"| **Non-answers wrongly accepted** | **{len(r['non_answers_wrongly_accepted'])}** |", '',
+             f"| **Non-answers wrongly accepted** | **{len(r['non_answers_wrongly_accepted'])}** |",
+             f"| Role-phone views read (RBAC, every role, incl. a re-route) | {r['rbac_role_views_checked']} |",
+             f"| **RBAC leaks** (phone/transcript anywhere, medical details to driver/family/district/blood bank) | **{len(r['rbac_leaks'])}** |",
+             f"| Unauthenticated role inbox blocked | {'yes' if r['rbac_unauthenticated_blocked'] else 'NO'} |", '',
              'Note: "submitted untouched" uses this script as the worker and ticks the acknowledgement automatically; '
              'in the real app a human must listen to the read-back and tick it.']
     path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
@@ -184,4 +222,4 @@ if __name__ == '__main__':
     result = run()
     print(json.dumps(result, indent=2, ensure_ascii=False))
     print('Report:', write_report(result).relative_to(ROOT))
-    raise SystemExit(1 if result['false_ready'] or result['bypasses_succeeded'] or result['non_answers_wrongly_accepted'] else 0)
+    raise SystemExit(1 if result['false_ready'] or result['bypasses_succeeded'] or result['non_answers_wrongly_accepted'] or result['rbac_leaks'] or not result['rbac_unauthenticated_blocked'] else 0)

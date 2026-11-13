@@ -37,7 +37,8 @@ class SQLiteCaseStore:
     def _encode(c):
         return json.dumps({k:getattr(c,k) for k in ('id','transcript','fields','version',
                    'confirmation_digest','confirmed_version','submitted','referral_id','events',
-                   'reviewed_digest','reviewed_version','submission_key','conflicts','sources','resolutions','audio_readback_version','confirmed_by')},
+                   'reviewed_digest','reviewed_version','submission_key','conflicts','sources','resolutions','audio_readback_version','confirmed_by',
+                   'emergency','routing')},
                    ensure_ascii=False)
 
     @staticmethod
@@ -67,6 +68,10 @@ class SQLiteCaseStore:
                 result=operation(c)
                 conn.execute('UPDATE cases SET version=?,body=? WHERE id=?', (c.version,self._encode(c),id))
         return c, result
+
+    def all_ids(self, limit=200):
+        with self.lock, self._db() as conn:
+            return [r[0] for r in conn.execute('SELECT id FROM cases ORDER BY rowid DESC LIMIT ?', (limit,))]
 
     def clear(self):
         with self.lock, self._db() as conn:

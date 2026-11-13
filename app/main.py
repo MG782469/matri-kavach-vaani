@@ -13,6 +13,8 @@ from .deploy_guard import public_mode, validate_public_config, correct_basic_aut
 from .prisma import transcribe, PrismaError, NothingHeard, profile_name
 from .clarify import question_for, parse_answer, resolve_choice, parse_confirmation, LABELS, QUESTIONS, CONFIRM_QUESTION
 from .extraction import find_conflicts
+from . import routing, rbac
+from fastapi import Header
 
 def gnani_key():
     """API key from the environment, cleaned of the quotes/spaces a shell `set` easily adds.
@@ -47,6 +49,7 @@ async def demo_security(request: Request, call_next):
 
 class TranscriptInput(BaseModel):
     transcript: str
+    emergency: str | None = None
 class AudioReadbackInput(BaseModel):
     expected_version: int
 
@@ -95,7 +98,9 @@ def view(case):
             'clarification':None if case.submitted else open_question(case),
             'clarification_count':sum(str(e.get('event','')).startswith('voice_clarification_filled') for e in case.events),
             'conflicts':case.conflicts,'resolutions':case.resolutions,
-            'field_states':field_states(case),'evidence':evidence(case)}
+            'field_states':field_states(case),'evidence':evidence(case),
+            'emergency':case.emergency,'emergency_label':routing.EMERGENCIES.get(case.emergency or '',{}).get('label'),
+            'routing':routing_view(case)}
 
 def open_question(case):
     kinds={k:('correction' if case.fields.get(k) else 'transcript') for k in case.conflicts}
@@ -173,24 +178,26 @@ def new_case(body: TranscriptInput):
     if not body.transcript.strip(): raise HTTPException(422,'Transcript required')
     if len(body.transcript)>SETTINGS.max_transcript_chars: raise HTTPException(413,'Transcript too long')
     c=Case(transcript=body.transcript);c.fields=parse_transcript(c.transcript);c.log('demo_transcript_entered')
+    set_emergency(c, body.emergency)
     c.conflicts=find_conflicts(c.transcript);set_sources(c,'typed transcript')
     if c.conflicts: c.log('conflicting_values_detected')
     STORE.create(c)
     return view(c)
 
 @app.post('/api/cases/from-audio')
-async def from_audio(file:UploadFile=File(...)):
+async def from_audio(file:UploadFile=File(...), emergency:str|None=Form(None)):
     key=live_key()
     audio=await read_audio(file)
     transcript=await run_in_threadpool(prisma_text, audio, file, key)
     c=Case(transcript=transcript);c.fields=parse_transcript(c.transcript);c.log('prisma_transcribed')
+    set_emergency(c, emergency)
     c.conflicts=find_conflicts(c.transcript);set_sources(c,'speech (Prisma)')
     if c.conflicts: c.log('conflicting_values_detected')
     STORE.create(c)
     return view(c)
 
 @app.get('/api/cases/{case_id}')
-def read_case(case_id:str):return view(get_case(case_id))
+def read_case(case_id:str):return view(refresh_routing(case_id))
 
 @app.put('/api/cases/{case_id}/fields')
 def update_case(case_id:str, body:FieldsInput):
@@ -467,8 +474,131 @@ def handoff_demo(case_id: str, body: DemoHandoffInput):
     modify_case(case_id,record,body.expected_version)
     return result
 
+
+# ---------------------------------------------------------------- emergency + routing
+def set_emergency(c, emergency):
+    if emergency is None or emergency == '': return
+    if emergency not in routing.EMERGENCIES: raise HTTPException(422,'Unknown emergency type')
+    c.emergency=emergency; c.log('emergency_selected_by_worker_'+emergency)
+
+def routing_view(case):
+    r=case.routing or {}
+    if not r: return None
+    fac=lambda i: routing.FACILITY[i]['name'] if i else None
+    return {'status':r.get('status'),'target':r.get('target'),'target_name':fac(r.get('target')),
+            'backup':r.get('backup'),'backup_name':fac(r.get('backup')),'asked_at':r.get('asked_at'),
+            'reply_window_sec':routing.REPLY_WINDOW_SEC,'eta_min':r.get('eta_min'),'ambulance':r.get('ambulance'),
+            'notified':r.get('notified',[]),'alerts':r.get('alerts',[]),
+            'history':[{'facility':fac(h['facility']),'outcome':h['outcome']} for h in r.get('history',[])]}
+
+def refresh_routing(case_id):
+    """Apply the 2-minute reply timer lazily on read (no background job needed)."""
+    c=get_case(case_id)
+    if (c.routing or {}).get('status')=='asked' and routing.now_ts()-c.routing.get('asked_at',0)>=routing.REPLY_WINDOW_SEC:
+        c=modify_case(case_id, lambda cur: routing.check_timeout(cur))
+    return c
+
+class EmergencyInput(BaseModel):
+    emergency: str
+
+@app.post('/api/cases/{case_id}/emergency')
+def choose_emergency(case_id:str, body:EmergencyInput):
+    """Worker-selected emergency type (from the Matri-Kavach list). Never inferred by AI."""
+    def apply(c):
+        if c.submitted: raise ValueError('Submitted case cannot be changed')
+        set_emergency(c, body.emergency)
+    try: return view(modify_case(case_id, apply))
+    except ValueError as e: raise HTTPException(409,str(e))
+
+@app.get('/api/routing/readiness/{emergency}')
+def routing_readiness(emergency:str):
+    if emergency not in routing.EMERGENCIES: raise HTTPException(404,'Unknown emergency type')
+    e=routing.EMERGENCIES[emergency]
+    return {'emergency':emergency,'label':e['label'],'needs':[{'id':i,'label':routing.ITEMS[i]} for i in e['items']],
+            'blood_bank':e['blood_bank'],'review':routing.CHECKLIST_REVIEW,
+            'facilities':routing.readiness(emergency),**routing.plan(emergency)}
+
+class RoutingInput(BaseModel):
+    expected_version: int
+
+@app.post('/api/cases/{case_id}/routing/send')
+def routing_send(case_id:str, body:RoutingInput):
+    """SEND to the proposed hospital (only after the worker-confirmed, submitted referral)."""
+    def apply(c): routing.start(c)
+    try: return view(modify_case(case_id, apply, body.expected_version))
+    except ValueError as e: raise HTTPException(409,str(e))
+
+@app.post('/api/cases/{case_id}/routing/skip')
+def routing_skip(case_id:str):
+    """Demo control: pretend the hospital's 2-minute reply window has passed."""
+    try: return view(modify_case(case_id, lambda c: routing.skip_wait(c)))
+    except ValueError as e: raise HTTPException(409,str(e))
+
+# ---------------------------------------------------------------- RBAC (role phones)
+class RoleLoginInput(BaseModel):
+    role: str
+class RoleVerifyInput(BaseModel):
+    role: str
+    code: str
+class RoleActInput(BaseModel):
+    action: str
+
+def current_role(authorization):
+    token=(authorization or '').removeprefix('Bearer ').strip()
+    try: return rbac.role_from_token(token)
+    except rbac.AuthError as e: raise HTTPException(401,str(e))
+
+@app.get('/api/roles')
+def list_roles():
+    return {'roles':[{'role':k,**v} for k,v in rbac.ROLES.items()],'who_sees_what':rbac.WHO_SEES_WHAT}
+
+@app.post('/api/role/login')
+def role_login(body:RoleLoginInput):
+    """Step 1: request a one-time code. Demo only: the code is returned so it can be shown on screen."""
+    try: code=rbac.request_code(body.role)
+    except rbac.AuthError as e: raise HTTPException(404,str(e))
+    return {'role':body.role,**rbac.ROLES[body.role],'demo_code':code,'note':'Synthetic number; in a real deployment the code goes by SMS'}
+
+@app.post('/api/role/verify')
+def role_verify(body:RoleVerifyInput):
+    try: return {'role':body.role,'token':rbac.verify_code(body.role, body.code)}
+    except rbac.AuthError as e: raise HTTPException(401,str(e))
+
+@app.get('/api/role/inbox')
+def role_inbox(authorization:str|None=Header(None)):
+    role=current_role(authorization)
+    items=[]
+    for cid in STORE.all_ids():
+        c=refresh_routing(cid)
+        v=rbac.view_for(c, role)
+        if v: items.append(v)
+    key=('hospital' if rbac.ROLES[role].get('facility') else role)
+    return {'role':role,'label':rbac.ROLES[role]['label'],'sees':rbac.WHO_SEES_WHAT.get(key,''),'cases':items}
+
+def _find_case_by_ref(ref):
+    for cid in STORE.all_ids():
+        if cid[:8].upper()==ref.upper(): return cid
+    raise HTTPException(404,'Case not found')
+
+@app.post('/api/role/cases/{case_ref}/act')
+def role_act(case_ref:str, body:RoleActInput, authorization:str|None=Header(None)):
+    role=current_role(authorization)
+    cid=_find_case_by_ref(case_ref)
+    fac=rbac.ROLES[role].get('facility')
+    def apply(c):
+        if body.action in ('confirm','not_ready') and fac: routing.hospital_reply(c, fac, body.action=='confirm')
+        elif body.action=='arrived' and fac: routing.arrived(c, fac)
+        elif body.action=='skip_wait' and role=='district': routing.skip_wait(c)
+        else: raise PermissionError(f'Role {role} cannot {body.action}')
+    try: c=modify_case(cid, apply)
+    except PermissionError as e: raise HTTPException(403,str(e))
+    except ValueError as e: raise HTTPException(409,str(e))
+    return {'ok':True,'case':rbac.view_for(c, role)}
+
 app.mount('/static',StaticFiles(directory=os.path.join(os.path.dirname(__file__),'static')),name='static')
 @app.get('/')
 def index():return FileResponse(os.path.join(os.path.dirname(__file__),'static','index.html'))
 @app.get('/chat')
 def chat():return FileResponse(os.path.join(os.path.dirname(__file__),'static','chat.html'))
+@app.get('/roles')
+def roles_page():return FileResponse(os.path.join(os.path.dirname(__file__),'static','roles.html'))

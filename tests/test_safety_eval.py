@@ -18,6 +18,9 @@ class SafetyEvalTests(unittest.TestCase):
         self.assertEqual(r['false_ready'], 0, r['false_ready_ids'])
         self.assertEqual(r['bypasses_succeeded'], [])
         self.assertEqual(r['non_answers_wrongly_accepted'], [])
+        self.assertEqual(r['rbac_leaks'], [])
+        self.assertGreaterEqual(r['rbac_role_views_checked'], 8)
+        self.assertTrue(r['rbac_unauthenticated_blocked'])
         self.assertGreater(r['submitted_untouched'], 0)   # the legitimate path still works
         self.assertGreater(r['held_for_worker_review'], 0)
 

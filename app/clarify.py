@@ -155,7 +155,7 @@ def spoken_digits(text):
     return ''.join(out)
 
 
-_REF_NOISE = re.compile(r'^(?:patient|मरीज़?|पेशेंट|रोगी|का|की|के|reference|ref|रेफरेंस|रिफरेंस|संदर्भ|'
+_REF_NOISE = re.compile(r'^(?:patient|मरीज़?|पेशेंट|रोगी|का|की|के|reference|ref|र[ेि]फ़?रेंस|संदर्भ|'
                         r'id|आईडी|number|no|नंबर|नम्बर|is|hai|है|मेरा|mera)$', re.I)
 # Answers often echo the question: "मरीज़ के गाँव का नाम रामपुर है", "रेफ़रल का कारण ... है".
 _VILLAGE_LEAD = re.compile(r'^\s*(?:(?:मेरे|मेरा|हमारे|हमारा|उनका|उसका|उनके|इनके|mera|hamara|unka)\s+)?'

@@ -8,7 +8,7 @@ The health worker speaks a referral. **Vaani** finds what is missing or contradi
 
 ![Gnani Prisma](https://img.shields.io/badge/Gnani-Prisma%20STT-0a8f7e?style=flat-square)
 ![Gnani Timbre](https://img.shields.io/badge/Gnani-Timbre%20TTS-0a8f7e?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-199%20passing-2ea44f?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-220%20passing-2ea44f?style=flat-square)
 ![Safety eval](https://img.shields.io/badge/false--ready-0%20%2F%2024-2ea44f?style=flat-square)
 ![Data](https://img.shields.io/badge/data-synthetic%20only-f0a500?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
@@ -36,9 +36,9 @@ Built for the **Great Indian AI Internship Challenge** by Gnani AI.
 |---|---|
 | **Problem** | ASHA workers send maternal-emergency referrals under pressure. One wrong digit in a phone number, or a missing village, costs time a mother in labour does not have. |
 | **Who** | ASHA workers, ANMs and PHC staff. Many of them prefer speaking to typing. |
-| **What it does** | The worker speaks naturally. If a detail is missing or two values conflict, Vaani **does not guess**: it asks aloud in Hindi, listens to the answer, reads every digit back, and submits only after the worker confirms by voice. |
+| **What it does** | The full Matri-Kavach referral, voice-first. The worker chooses the emergency, then speaks the details naturally. If a detail is missing or two values conflict, Vaani **does not guess**: it asks aloud in Hindi, listens to the answer, reads every digit back, and submits only after the worker confirms by voice. Vaani then asks the **nearest hospital that is ready tonight**, moves to the backup if there is no reply in 2 minutes, and tells the 108 ambulance, the doctor, the blood bank and the family **only what each of them needs** (server-side RBAC). |
 | **Gnani models** | **Prisma** (speech-to-text) hears the referral and every answer. **Timbre** (text-to-speech) asks the questions and reads the details back. |
-| **Proof** | 199 automated tests · **0 false-ready referrals** across 24 adversarial cases and 15 bypass attempts · a live Gnani run of the conflict → spoken answer → read-back loop. |
+| **Proof** | 220 automated tests · **0 false-ready referrals** across 24 adversarial cases and 15 bypass attempts · a live Gnani run of the conflict → spoken answer → read-back loop. |
 
 ## The problem
 
@@ -50,8 +50,8 @@ Built for the **Great Indian AI Internship Challenge** by Gnani AI.
 
 ```mermaid
 flowchart LR
-    S["👋 Hi → भाषा"] --> E["☰ Choose emergency<br/>(Matri-Kavach list,<br/>worker-selected)"]
-    E --> A["🎙 Patient details by voice<br/>all at once, or Vaani asks<br/>one by one"]
+    S["👋 Hi → भाषा"] --> EM["☰ Choose emergency<br/>(Matri-Kavach list,<br/>worker-selected)"]
+    EM --> A["🎙 Patient details by voice<br/>all at once, or Vaani asks<br/>one by one"]
     A --> B["Gnani Prisma<br/>transcript"]
     B --> C{"Fields complete<br/>and consistent?"}
     C -- "missing / invalid" --> D["Timbre asks for<br/>that one field"]
@@ -64,14 +64,48 @@ flowchart LR
     H -- "नहीं" --> I["Which field?<br/>Spoken correction → conflict"]
     I --> E
     H -- "yes" --> J["Simulated referral<br/>+ Evidence Passport"]
-    J --> K["Matri-Kavach demo case<br/>with the chosen emergency<br/>(no patient data sent)"]
+    J --> R["SEND: nearest hospital<br/>ready tonight<br/>(checklist per emergency)"]
+    R -- "✗ or no reply in 2 min" --> R2["Backup hospital asked<br/>district alerted"]
+    R -- "✓ Ready" --> K["108 + doctor + blood bank + family<br/>each sees only their part (RBAC)"]
+    R2 --> K
 ```
 
-## Two ways to use it
+## The Matri-Kavach concept, voice-first
 
-| **Chat view: `/chat`** | **Dashboard: `/`** |
+Vaani keeps the whole Matri-Kavach referral flow and adds Gnani voice to every step.
+
+| Matri-Kavach step | In Vaani |
 |---|---|
-| The **Matri-Kavach conversation**, rebuilt voice-first. Say **Hi**, choose a language, then **☰ choose the emergency** from the same list Matri-Kavach uses. Give the patient details **all at once by voice**, or let Vaani **ask one by one** (Timbre asks, Prisma hears). It is a mobile-first chat built around **voice notes**, the way ASHAs already work. The worker sends a voice note and Vaani replies with Timbre voice notes. Quick-reply chips cover "पहला / दूसरा" and "हाँ, सब सही है". Draft cards show the state of each field, and a case panel (a bottom sheet on mobile) holds the Evidence Passport. **Hands-free:** after Vaani speaks, the mic opens by itself. Dark mode is included. | A reviewer and audit view. Every field can be edited, and it shows the read-back controls, the full activity timeline and the raw audit JSON. |
+| Hi → language → **choose emergency** (the same list, with checklists reviewed by clinical advisor Moluvi Gufran) | The same, in chat. The worker chooses the emergency; Vaani never diagnoses. |
+| **Fill patient details** | Spoken by voice, all at once or with Vaani asking one by one. Conflicts are resolved, every digit is read back, and the worker approves by voice. |
+| **SEND to the proposed hospital** | Each hospital's readiness is checked against the emergency's checklist (for PPH: blood, anaesthetist, theatre…). The **nearest ready hospital** is asked first and the next ready one is the backup. Example: CHC Sonpur is skipped tonight because it has no anaesthetist. |
+| **Hospital confirms, or there is no reply, or it reroutes** | The hospital replies "✓ Ready" or "✗ Not ready" on its role phone. With no reply in **2 minutes**, Vaani asks the backup automatically. If no hospital is left, the district is alerted. |
+| **Doctor, blood bank, family and 108 are told** | On confirmation, Ambulance 1 is assigned and each role gets **only its part** (see below). |
+| **Arrival** | The hospital taps "🏁 Patient arrived". |
+
+### Who sees what (RBAC, enforced on the server)
+
+Every role logs in on its own phone with a synthetic number and a one-time code. Every view is built from an **allow-list** on the server. Nothing is hidden in the browser.
+
+| Role | Sees | Never sees |
+|---|---|---|
+| 🧑‍⚕️ Nurse / ASHA (`/chat`) | Everything she entered | — |
+| 🏥 Asked hospital | Emergency, needs, reference, village, reason, ETA, 2-minute timer, ✓ / ✗ | Phone number, transcript |
+| 🩺 Receiving doctor | A private summary that expires 2 hours after confirmation | Phone number |
+| 🩸 Blood bank | Emergency type and hospital (bleeding emergencies only) | Patient details |
+| 🚑 108 driver | Case ID, pickup village, hospital, route | **Any medical detail** |
+| 🧑‍⚕️ 108 EMT | Emergency, reason and route, for care on the way | Phone number |
+| 👪 Family | Hospital and ETA, in Hindi | **Any medical detail** |
+| 🏛 District | Case ID, emergency type, status, re-route alerts | Name, reference, village, phone |
+
+<p align="center"><img src="docs/images/roles-driver.jpg" width="80%" alt="Role phones: the 108 driver sees only pickup, hospital, ETA and route; the who-sees-what table highlights the driver row"></p>
+<p align="center"><sub><code>/roles</code>: the 108 driver's phone shows only the pickup, drop, ETA and route. Switch phones to see each role's part.</sub></p>
+
+## Three screens
+
+| **Chat view: `/chat`** | **Role phones: `/roles`** | **Dashboard: `/`** |
+|---|---|---|
+| The **Matri-Kavach conversation**, rebuilt voice-first. Say **Hi**, choose a language, then **☰ choose the emergency** from the same list Matri-Kavach uses. Give the patient details **all at once by voice**, or let Vaani **ask one by one** (Timbre asks, Prisma hears). It is a mobile-first chat built around **voice notes**, the way ASHAs already work. The worker sends a voice note and Vaani replies with Timbre voice notes. Quick-reply chips cover "पहला / दूसरा" and "हाँ, सब सही है". Draft cards show the state of each field, and a case panel (a bottom sheet on mobile) holds the Evidence Passport. **Hands-free:** after Vaani speaks, the mic opens by itself. Dark mode is included. | Matri-Kavach's "Switch phone": DH Devgarh, SDH Kheri, CHC Sonpur, GMC Rajnagar, doctor, blood bank, 108 driver, 108 EMT, family and district. Each phone logs in with a one-time code and sees only its part of the case. Hospitals reply ✓/✗ with a live 2-minute timer. | A reviewer and audit view. Every field can be edited, and it shows the read-back controls, the full activity timeline and the raw audit JSON. |
 
 <p align="center"><img src="docs/images/chat-approved.jpg" width="72%" alt="Approved referral: confirmed by voice, every field confirmed, Evidence Passport shows v1 approved by voice"></p>
 <p align="center"><sub>After "हाँ, सब सही है": confirmed by voice, every field shows ✓, and the Evidence Passport records <b>v1 · by voice</b>.</sub></p>
@@ -102,9 +136,11 @@ flowchart LR
 
 | What | Result | Reproduce |
 |---|---|---|
-| Automated tests (offline, with Gnani stubbed) | **199 / 199 pass** | `py -m unittest discover -s tests` |
+| Automated tests (offline, with Gnani stubbed) | **220 / 220 pass** | `py -m unittest discover -s tests` |
 | **False-ready safety eval:** 24 transcripts pushed straight to submit, 15 bypass attempts (5 of them voice-confirmation tricks), 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** With the guards deliberately broken, the same eval catches the failures. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
 | **Natural-speech extraction** (14 fictional transcripts) | Marker words only: 30/56 fields and 3.43 questions per draft. **With natural speech: 56/56 fields, 0 wrong values, 1.57 questions per draft.** | `py benchmarks\run_natural_eval.py` → [report](benchmarks/results/natural_eval_report.md) |
+| **RBAC leak sweep:** one routed case (with a re-route) read from all 11 role phones | **0 leaks.** No phone number or transcript in any role view, no medical details for the driver, family, district or blood bank, and the role inbox without a login returns 401. When a leak is injected deliberately, it is caught. | `py benchmarks\run_safety_eval.py` |
+| **Routing** (readiness, nearest ready hospital, backup, 2-minute timer, no-hospital alert) | Matches the Matri-Kavach rules. PPH goes to DH Devgarh (CHC is skipped: no anaesthetist), and eclampsia goes to SDH Kheri (DH has no HDU). | `py -m unittest tests.test_routing_rbac` |
 | Fixture benchmark (hand-written transcripts) | 16/16 cases, 64/64 fields | `py benchmarks\run_benchmark.py` → [report](benchmarks/results/stage9_report.md) |
 | **Live Gnani run** (developer key, fictional case) | Prisma transcribed a Hindi referral with Devanagari numerals, and all 4 fields were extracted. Timbre asked a conflict question, the spoken answer resolved it, and the Timbre read-back was generated. This run found two real bugs (ITN "१st", and a stale passport), both now fixed. | Manual run on 12–13 Nov 2026. To repeat: `py scripts\live_smoke_test.py` (15 checks) |
 | Noise robustness (clean / 10 dB / 5 dB / 8 kHz phone) | Run it with your key. The report separates wrong values (dangerous) from abstentions (safe, because Vaani then asks). | `py benchmarks\run_tts_benchmark.py C:\private\tts_bench` |
@@ -118,7 +154,7 @@ py -m pip install -r requirements.txt
 py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open **http://localhost:8000/chat** for the chat view, or **http://localhost:8000** for the dashboard.
+Open **http://localhost:8000/chat** for the chat view, **http://localhost:8000/roles** for the role phones (hospital, 108, family, district…), or **http://localhost:8000** for the dashboard. To try the full loop, send a referral in the chat, then open `/roles` in a second tab, log in as the asked hospital and tap ✓ Ready. The chat updates live.
 
 **Mock mode** is the default and needs no key. Tap "Sample: दो अलग नंबर" or "Sample: अधूरी जानकारी" and answer by typing or tapping.
 
@@ -173,6 +209,7 @@ Next steps:
 - Extraction is rule-based: marker patterns first, then natural-speech patterns. Very free-form speech can still leave fields blank. That is the safe failure, because Vaani asks for them. The natural-speech numbers come from in-sample fixtures, not independent data.
 - The noise benchmark uses Timbre-generated speech with noise added artificially. It is a robustness check, not a field recording study.
 - The `codemix` profile and spoken confirmation follow the Gnani docs and pass the offline tests and smoke test, but they have not been checked end to end with a live key.
+- Hospital readiness, distances, stock and ambulance assignment are fictional, as in Matri-Kavach. Role logins are a demo: the one-time code is shown on screen, and the token secret lives in memory.
 - The screenshots show fictional data. In them, Gnani responses were simulated so that each step could be shown.
 
 ## Repository map
@@ -183,6 +220,9 @@ app/clarify.py         Clarification questions, answer parsing, conflict resolut
 app/extraction.py      Marker + natural-speech extraction and conflict detection (Prisma-style Hindi/Hinglish)
 app/prisma.py          Gnani Prisma REST adapter (hindi / codemix profiles, previous_text context)
 app/timbre.py          Gnani Timbre REST adapter (bounded, validated WAV)
+app/routing.py         Readiness checklists, nearest-ready routing, backup, 2-minute reply timer, arrival
+app/rbac.py            Role logins (one-time code, signed token) and allow-listed views per role
+app/static/roles.html  Role phones: hospital, doctor, blood bank, 108, family, district
 app/core.py            Case model: versions, read-back / approval digests, conflicts, resolution history
 app/static/chat.html   Chat view: voice notes, Timbre replies, quick replies, hands-free loop, case sheet
 app/static/index.html  Dashboard: editable fields, read-back controls, field states, passport, audit
@@ -190,7 +230,7 @@ app/static/voice.js    Shared recorder: MediaRecorder → 16 kHz mono WAV + live
 benchmarks/            Safety eval, natural-speech eval, fixture benchmark, TTS noise benchmark
 scripts/               check_gnani.py (key diagnosis), live_smoke_test.py (live end-to-end check)
 docs/                  Architecture, API, evidence, demo and submission kit, screenshots
-tests/                 199 offline tests
+tests/                 220 offline tests
 ```
 
 More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)
