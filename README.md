@@ -6,6 +6,18 @@ Built on **Gnani Prisma** (speech-to-text) and **Gnani Timbre** (text-to-speech)
 
 > ⚠️ This is a research and hackathon prototype that uses **synthetic data only**. It does not diagnose, triage or dispatch, and it must never be used with real patients.
 
+## In 30 seconds
+
+| | |
+|---|---|
+| **Problem** | ASHA workers send maternal-emergency referrals under pressure. One wrong digit in a phone number, or a missing village, costs time a mother in labour does not have. |
+| **Who** | ASHA workers, ANMs and PHC staff, many of whom prefer speaking to typing. |
+| **What it does** | The worker speaks the referral. If a detail is missing or two values conflict, the app **does not guess**: it asks aloud in Hindi, listens to the answer, reads every digit back, and submits only after the worker confirms by voice. |
+| **Gnani models** | **Prisma** (speech-to-text) hears the referral and every answer. **Timbre** (text-to-speech) asks the questions and reads the details back. |
+| **Proof** | 186 automated tests · 0 false-ready referrals in a 24-case adversarial safety eval · live Gnani run of the full conflict → spoken answer → read-back loop. |
+
+🎥 **Demo video:** _add link_ · 💼 **LinkedIn post:** _add link_ · 🐦 **X post:** _add link_
+
 ```
  Speak ─▶ Prisma transcript ─▶ Extract fields ─▶ Detect missing / conflicting ─▶ Timbre asks ─▶ Worker answers
    ▲                                                                                            │
@@ -101,6 +113,27 @@ py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 - The noise benchmark uses Timbre-generated speech with noise added artificially. It is a robustness check, not a field recording study.
 - The `codemix` profile follows the Gnani docs but has not been checked end to end with a live key.
 
+## Why the extraction is rule-based (safety by design)
+
+The AI in this project is Gnani's speech models. Turning a transcript into fields is done with deterministic rules on purpose:
+
+- **No invented values.** A rule either finds a value or leaves the field empty. An empty field is the safe failure, because the assistant then asks for it aloud. A generative model could fill a plausible but wrong phone number, and nothing would ask about it.
+- **Every change can be explained.** Each field records where its value came from (speech, a voice answer or a manual edit), which is what the Evidence Passport shows.
+- **It is testable.** The same transcript always gives the same fields, so the safety eval can prove that nothing wrong gets through.
+
+A language model could later *suggest* values for very free-form speech, but those suggestions would still go through the same ask, read-back and confirm loop.
+
+## Scope and roadmap
+
+The prototype deliberately covers the four details where one wrong value delays care the most: **patient reference, village, contact number and reason**. Each one goes through the full ask, read-back and confirm loop, which matters more than collecting many fields loosely.
+
+Next steps:
+
+1. **More referral fields** using the same loop: danger sign (chosen from a fixed list), weeks of pregnancy, destination facility and transport.
+2. **More languages.** Prisma and Timbre support many Indian languages. Bhojpuri-speaking, Odia, Bengali and Marathi regions are next, starting with the questions and read-back.
+3. **Real-voice evaluation.** Fictional referrals recorded by several speakers, to measure field accuracy on real audio rather than written fixtures.
+4. **Field feedback** from ASHA workers and nursing students before any pilot.
+
 ## Repository map
 
 ```
@@ -118,6 +151,11 @@ tests/                186 offline tests
 ```
 
 More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)
+
+## Team
+
+- **Manas Girdhar**
+- **Meenakshi Satpathy**
 
 ## License
 
