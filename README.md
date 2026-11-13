@@ -14,7 +14,7 @@ Built on **Gnani Prisma** (speech-to-text) and **Gnani Timbre** (text-to-speech)
 | **Who** | ASHA workers, ANMs and PHC staff, many of whom prefer speaking to typing. |
 | **What it does** | The worker speaks the referral. If a detail is missing or two values conflict, the app **does not guess**: it asks aloud in Hindi, listens to the answer, reads every digit back, and submits only after the worker confirms by voice. |
 | **Gnani models** | **Prisma** (speech-to-text) hears the referral and every answer. **Timbre** (text-to-speech) asks the questions and reads the details back. |
-| **Proof** | 186 automated tests · 0 false-ready referrals in a 24-case adversarial safety eval · live Gnani run of the full conflict → spoken answer → read-back loop. |
+| **Proof** | 194 automated tests · 0 false-ready referrals in a 24-case adversarial safety eval · live Gnani run of the full conflict → spoken answer → read-back loop. |
 
 🎥 **Demo video:** _add link_ · 💼 **LinkedIn post:** _add link_ · 🐦 **X post:** _add link_
 
@@ -36,6 +36,11 @@ ASHA and frontline health workers write maternal-emergency referrals under time 
 A wrong digit in a phone number, or the wrong village, costs time that a mother in labour does not have.
 
 **Users:** ASHA workers, ANMs and PHC staff who create or relay referrals.
+
+## Two ways to use it
+
+- **Chat view, `/chat`:** a mobile-first messaging interface, built around voice notes the way ASHAs already work. The worker sends a voice note, and Vaani replies with Timbre voice notes, quick-reply chips for "पहला / दूसरा" and "हाँ, सब सही है", draft cards with a state for each field, and a side panel (a bottom sheet on mobile) that holds the Evidence Passport. Hands-free mode opens the mic automatically after Vaani speaks. Dark mode is included.
+- **Dashboard, `/`:** a reviewer and audit view with every field editable, the full timeline and the raw audit JSON.
 
 ## What makes it different
 
@@ -64,7 +69,7 @@ A wrong digit in a phone number, or the wrong village, costs time that a mother 
 
 | What | Result | How to reproduce |
 |---|---|---|
-| Automated tests (offline, Gnani stubbed) | **186 / 186 pass** | `py -m unittest discover -s tests` |
+| Automated tests (offline, Gnani stubbed) | **194 / 194 pass** | `py -m unittest discover -s tests` |
 | **False-ready safety eval:** 24 transcripts pushed straight to submit, 15 bypass attempts (5 of them voice-confirmation tricks), 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** When the guards are deliberately broken, the same eval catches them. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
 | **Natural-speech extraction** (14 fictional transcripts) | Marker-only: 30/56 fields, 3.43 questions per draft. **With natural fallback: 56/56 fields, 0 wrong values, 1.57 questions per draft** | `py benchmarks\run_natural_eval.py` → [report](benchmarks/results/natural_eval_report.md) |
 | Field-extraction fixtures (hand-written synthetic transcripts) | 16/16 cases, 64/64 fields | `py benchmarks\run_benchmark.py` → [report](benchmarks/results/stage9_report.md) |
@@ -80,7 +85,7 @@ py -m pip install -r requirements.txt
 py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-Open http://localhost:8000.
+Open http://localhost:8000/chat for the chat view, or http://localhost:8000 for the dashboard.
 
 **Mock mode** (the default) works without a key. Try "Sample: conflicting numbers" or "Sample: missing details" and answer by typing.
 
@@ -143,11 +148,13 @@ app/extraction.py     Conservative field extraction and conflict detection (Pris
 app/prisma.py         Gnani Prisma REST adapter (hindi / codemix profiles, previous_text context)
 app/timbre.py         Gnani Timbre REST adapter (bounded, validated WAV)
 app/core.py           Case model: versions, read-back/confirmation digests, conflicts, resolution history
-app/static/index.html Single-page UI: recorder (16 kHz WAV), voice assistant, field states, passport
+app/static/chat.html  Chat view: voice notes, Timbre replies, quick replies, hands-free loop, case sheet
+app/static/index.html Dashboard: recorder, voice assistant, editable fields, field states, passport, audit
+app/static/voice.js   Shared recorder: MediaRecorder → 16 kHz mono WAV + live input level
 benchmarks/           Safety eval, fixture benchmark, TTS noise benchmark, audio variant generator
 scripts/              check_gnani.py (key diagnosis), live_smoke_test.py (live end-to-end check)
 docs/                 Architecture, API, evidence, demo and submission kit
-tests/                186 offline tests
+tests/                194 offline tests
 ```
 
 More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)

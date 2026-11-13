@@ -1,7 +1,7 @@
 # Architecture
 
 ```text
-Browser (app/static/index.html)
+Browser: chat view (app/static/chat.html) or dashboard (app/static/index.html); recorder in app/static/voice.js
   ├─ MediaRecorder → decode → 16 kHz mono WAV (Prisma REST does not accept webm)
   ├─ Voice assistant panel: Timbre question → auto-record answer → next question
   └─ Field states, Evidence Passport, audit timeline

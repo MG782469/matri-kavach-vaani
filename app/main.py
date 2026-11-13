@@ -470,3 +470,5 @@ def handoff_demo(case_id: str, body: DemoHandoffInput):
 app.mount('/static',StaticFiles(directory=os.path.join(os.path.dirname(__file__),'static')),name='static')
 @app.get('/')
 def index():return FileResponse(os.path.join(os.path.dirname(__file__),'static','index.html'))
+@app.get('/chat')
+def chat():return FileResponse(os.path.join(os.path.dirname(__file__),'static','chat.html'))
