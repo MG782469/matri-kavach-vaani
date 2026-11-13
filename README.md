@@ -126,7 +126,7 @@ Every role logs in on its own phone with a synthetic number and a one-time code.
 
 ## Gnani models used
 
-| Model | Used for | How |
+| Model | Used for | How ||
 |---|---|---|
 | **Prisma v2.5** (default: `hi-IN`, `format=transcribe`, native-numeral ITN) | The referral, every clarification answer, spoken corrections and the spoken confirmation | REST `POST /stt/v3`. The browser records 16 kHz mono WAV, because the REST API does not accept webm. |
 | **Prisma v3.0** (`GNANI_STT_PROFILE=codemix`) | Optional Hinglish profile | `language_code=hi-IN,en-IN`, `format=codemix`. Vaani's question is sent as `previous_text`, so short replies such as "दूसरा" are transcribed in context. |
