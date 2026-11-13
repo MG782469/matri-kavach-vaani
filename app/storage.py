@@ -37,7 +37,7 @@ class SQLiteCaseStore:
     def _encode(c):
         return json.dumps({k:getattr(c,k) for k in ('id','transcript','fields','version',
                    'confirmation_digest','confirmed_version','submitted','referral_id','events',
-                   'reviewed_digest','reviewed_version','submission_key','conflicts','sources','resolutions')},
+                   'reviewed_digest','reviewed_version','submission_key','conflicts','sources','resolutions','audio_readback_version','confirmed_by')},
                    ensure_ascii=False)
 
     @staticmethod

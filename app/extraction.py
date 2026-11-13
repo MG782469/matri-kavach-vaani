@@ -105,15 +105,86 @@ def _contact_digits(s):
     return re.sub(r'[\s,-]', '', s)
 
 
-def parse_transcript(transcript: str) -> dict:
+# ---------------------------------------------------------------------------
+# Natural-speech FALLBACK patterns. Used for a field only when no marker pattern
+# matched at all, so marker-based behaviour (and its benchmark) is unchanged.
+#   "रामपुर की मरीज़ है, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है"
+# ---------------------------------------------------------------------------
+_L = r'A-Za-z\u0900-\u097F'
+_ID_NATURAL = [
+    r'(?:\b(?:id|reference|ref)\b|आईडी|रेफरेंस|रिफरेंस)\s*(?:number|no|नंबर|नम्बर)?\s*(?:is|hai|है|:|-)?\s*'
+    r'(?P<value>[A-Za-z]{0,10}-?[0-9][A-Za-z0-9_-]{0,29})',
+]
+_VILLAGE_NATURAL = [
+    r'(?P<value>[' + _L + r']+)\s+(?:की|के|का|ki|ke|ka)\s+(?:मरीज़?|महिला|गर्भवती|पेशेंट|mareez|mariz|patient|'
+    r'रहने\s+वाली|रहने\s+वाले|रहने\s+वाला|rehne\s+wal[aie])',
+    r'(?P<value>[' + _L + r']+)\s+(?:से|se)\s+(?:आई|आए|आया|aayi|aai|aaye)\s+(?:है|हैं|hai|hain)',
+]
+_CONTACT_NATURAL = [
+    r'(?:\b(?:number|no|num)\b|नंबर|नम्बर)\s*(?:is|hai|है|:|-|पर|par)?\s*(?P<value>(?:[0-9](?:[\s-]|,\s)*){10})\b',
+]
+_REASON_NATURAL = [
+    r'(?P<value>[^,.;।!?]{2,80}?\s(?:के\s+लिए|ke\s+liye|for)\s+[^,.;।!?]{0,40}?'
+    r'(?:ले\s+जाना|भेजना|रेफर\s+करना|दिखाना|le\s+jana|bhejna|refer\s+karna|dikhana)(?:\s+(?:है|hai|होगा|hoga))?)'
+    r'(?=\s*(?:[,.;।!?]|कृपया|please|$))',
+    r'(?P<value>(?:अस्पताल|हॉस्पिटल|hospital|PHC|CHC)\s+(?:ले\s+जाना|भेजना|le\s+jana|bhejna|refer\s+karna)(?:\s+(?:है|hai))?)',
+]
+_NOT_A_PLACE = {'इस', 'उस', 'हमारे', 'मेरे', 'एक', 'यह', 'वह', 'इन', 'उन', 'गाँव', 'गांव', 'this', 'that', 'ek', 'hamare',
+                'mere', 'is', 'us', 'gaon', 'village', 'अस्पताल', 'hospital', 'मरीज़', 'मरीज', 'महिला', 'पेशेंट',
+                'गर्भवती', 'mareez', 'mariz', 'patient', 'naam', 'नाम'}
+
+
+def _id_value(v):
+    return v
+
+
+def _place_value(v):
+    # "इस गाँव की मरीज़" made the marker regex catch "की मरीज़": drop leading particles, then
+    # reject anything that is not a place name.
+    v = re.sub(r'^(?:(?:की|का|के|से|में|ki|ka|ke|se|mein)\s+)+', '', v.strip(), flags=re.I)
+    v = _clean_village(v)
+    if not v or v.lower() in _NOT_A_PLACE or any(w.lower() in _NOT_A_PLACE for w in v.split()):
+        return ''
+    return v
+
+
+def _reason_value(v):
+    return v.strip()
+
+
+_SPECS = {
+    'patient_ref': (_ID, _ID_NATURAL, _id_value),
+    'contact': (_CONTACT, _CONTACT_NATURAL, _contact_digits),
+    'village': (_VILLAGE, _VILLAGE_NATURAL, _place_value),
+    'referral_reason': (_REASON, _REASON_NATURAL, _reason_value),
+}
+
+
+def _dedupe(found):
+    """Keep the longest form when one pattern catches "Rampur" and another "Rampur Kalan"."""
+    return [v for v in found if not any(v != o and v.lower() in o.lower() for o in found)]
+
+
+def _candidates(text, field, natural=True):
+    primary, fallback, transform = _SPECS[field]
+    found = _match_all(text, primary, transform)
+    if field == 'village':
+        found = _dedupe([v for v in found if v.lower() not in _FILLERS])
+    if not found and natural:
+        found = _dedupe(_match_all(text, fallback, transform))
+    return found
+
+
+def parse_transcript(transcript: str, natural: bool = True) -> dict:
+    """Conservative extraction. A field is filled only when exactly ONE value was found;
+    two different values leave it blank (see find_conflicts) — the worker is asked instead."""
     if not isinstance(transcript, str):
         raise TypeError('Transcript must be text')
     text = _prep(transcript)
-    out = {k: '' for k in FIELDS}
-    out['patient_ref'] = _match_unique(text, _ID)
-    out['contact'] = _match_unique(text, _CONTACT, _contact_digits)
-    out['village'] = _match_unique(text, _VILLAGE, _clean_village)
-    out['referral_reason'] = _match_unique(text, _REASON)
+    out = {}
+    for k in FIELDS:
+        found = _candidates(text, k, natural)
+        out[k] = found[0] if len(found) == 1 else ''
     return out
 
 
@@ -127,18 +198,9 @@ def find_conflicts(transcript: str) -> dict:
     candidates so the worker can be asked which one is right.
     """
     text = _prep(transcript)
-    specs = {'patient_ref': (_ID, lambda x: x),
-             'contact': (_CONTACT, _contact_digits),
-             'village': (_VILLAGE, _clean_village),
-             'referral_reason': (_REASON, lambda x: x)}
     out = {}
-    for field, (patterns, transform) in specs.items():
-        found = _match_all(text, patterns, transform)
-        if field == 'village':
-            # Drop filler words a marker regex can catch ("गाँव से"), and keep the
-            # longest form when one regex catches "Rampur" and another "Rampur Kalan".
-            found = [v for v in found if v.lower() not in _FILLERS]
-            found = [v for v in found if not any(v != o and v in o for o in found)]
+    for field in FIELDS:
+        found = _candidates(text, field)
         if len(found) > 1:
             out[field] = found[:3]
     return out

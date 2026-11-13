@@ -8,7 +8,7 @@ Workflow guardrail check. It does not measure speech recognition accuracy and is
 | Submitted untouched (all fields complete and correct) | 6 |
 | Held for worker review / clarification | 18 |
 | **False-ready** (submitted with a wrong or missing value) | **0** |
-| Bypass attempts (skip read-back, stale version, open conflict, ...) | 10 |
+| Bypass attempts (skip read-back, stale version, open conflict, voice-confirm tricks, ...) | 15 |
 | **Bypasses that succeeded** | **0** |
 | Non-answers sent to the voice assistant | 26 |
 | **Non-answers wrongly accepted** | **0** |

@@ -120,5 +120,24 @@ r = answer(v, 'village', worker_says('रामपुर नहीं, सोन
 ok = r.status_code == 200 and 'village' in r.json()['conflicts'] and r.json()['fields']['village'] == 'Rampur'
 check('spoken correction becomes a conflict, not an overwrite', ok, f'Prisma heard: {heard(r)}')
 
+# 5. Hands-free spoken confirmation: only "हाँ, सब सही है" after the Timbre read-back of THIS version.
+h = client.post('/api/cases/from-transcript', json={'transcript': 'Patient ID: SMOKE-5, village: Rampur, contact: 9876543210, reason: transport coordination'}).json()
+rb = client.post(f"/api/cases/{h['id']}/readback/audio", json={'expected_version': h['version']})
+cq = client.post(f"/api/cases/{h['id']}/confirm/question-audio", json={'expected_version': h['version']})
+check('Timbre asks "क्या सभी विवरण सही हैं?"', rb.status_code == 200 and cq.status_code == 200 and cq.content[:4] == b'RIFF')
+
+
+def say_confirm(text):
+    return client.post(f"/api/cases/{h['id']}/confirm/voice", data={'expected_version': str(h['version'])},
+                       files={'file': ('confirm.wav', worker_says(text), 'audio/wav')})
+
+
+r = say_confirm('हाँ')
+check('a bare spoken "हाँ" does not confirm', r.status_code == 422, f'Prisma heard: {heard(r)}')
+r = say_confirm('हाँ, सब सही है')
+ok = r.status_code == 200 and r.json()['confirmed'] and r.json()['evidence']['confirmed_by'] == 'voice'
+check('"हाँ, सब सही है" confirms this version by voice', ok,
+      f"Prisma heard: {(r.json().get('voice_confirmation') or {}).get('heard', heard(r))}")
+
 print(f'\n{sum(results)}/{len(results)} checks passed.')
 raise SystemExit(0 if all(results) else 1)

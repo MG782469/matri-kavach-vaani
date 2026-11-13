@@ -218,7 +218,8 @@ class ConflictApiTests(unittest.TestCase):
 
     def test_evidence_passport_has_no_patient_values(self):
         x = self.create(TWO_NUMBERS)
-        blob = repr(x['evidence'])
+        # case_ref is a random hex id that can contain "A1" by chance, so leave it out of the scan.
+        blob = repr({k: v for k, v in x['evidence'].items() if k != 'case_ref'})
         for value in ('9876543210', '9123456789', 'Rampur', 'A1'):
             self.assertNotIn(value, blob)
         self.assertTrue(x['evidence']['synthetic_only'])

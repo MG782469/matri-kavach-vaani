@@ -100,6 +100,33 @@ def bypass_attempts(client):
     submit(u, 0, 'first-key-0001')
     out['second_submit_with_other_key'] = submit(u, 0, 'other-key-0002')
     out['edit_after_submit'] = client.put(u + '/fields', json={'fields': x['fields'], 'expected_version': 0}).status_code == 200
+
+    # Spoken confirmation bypasses (Timbre stubbed so the read-back audio can be "generated").
+    from unittest.mock import patch
+    from app import main
+    wav = b'RIFF' + (40).to_bytes(4, 'little') + b'WAVE' + b'0' * 36
+
+    def say(u, text, v=0):
+        return client.post(u + '/confirm/voice', data={'expected_version': str(v), 'answer_text': text}).status_code == 200 \
+            and client.get(u).json()['confirmed']
+
+    def audio(u, v=0):
+        with patch.object(main, 'MODE', 'live'), patch.dict(os.environ, {'GNANI_API_KEY': 'stub'}), \
+             patch.object(main, 'synthesize', lambda t, k: wav):
+            client.post(u + '/readback/audio', json={'expected_version': v})
+
+    x, u = fresh(); client.post(u + '/readback')
+    out['voice_confirm_without_hearing_audio_readback'] = say(u, 'हाँ, सब सही है')
+    x, u = fresh(); audio(u)
+    out['voice_confirm_with_bare_haan'] = say(u, 'हाँ')
+    out['voice_confirm_with_negative'] = say(u, 'हाँ सही है, नहीं रुकिए')
+    x, u = fresh(); audio(u)
+    f = dict(x['fields']); f['village'] = 'Sonpur'
+    client.put(u + '/fields', json={'fields': f, 'expected_version': 0}); client.post(u + '/readback')
+    out['voice_confirm_after_edit_without_new_audio'] = say(u, 'हाँ, सब सही है', 1) or say(u, 'हाँ, सब सही है', 0)
+    x, u = fresh(); audio(u)
+    client.post(u + '/correct', data={'field': 'contact', 'expected_version': '0', 'answer_text': '9123456789'})
+    out['voice_confirm_with_open_conflict'] = say(u, 'हाँ, सब सही है', 1)
     return out
 
 
@@ -143,7 +170,7 @@ def write_report(r):
              f"| Submitted untouched (all fields complete and correct) | {r['submitted_untouched']} |",
              f"| Held for worker review / clarification | {r['held_for_worker_review']} |",
              f"| **False-ready** (submitted with a wrong or missing value) | **{r['false_ready']}** |",
-             f"| Bypass attempts (skip read-back, stale version, open conflict, ...) | {r['bypass_attempts']} |",
+             f"| Bypass attempts (skip read-back, stale version, open conflict, voice-confirm tricks, ...) | {r['bypass_attempts']} |",
              f"| **Bypasses that succeeded** | **{len(r['bypasses_succeeded'])}** |",
              f"| Non-answers sent to the voice assistant | {r['non_answers_tried']} |",
              f"| **Non-answers wrongly accepted** | **{len(r['non_answers_wrongly_accepted'])}** |", '',

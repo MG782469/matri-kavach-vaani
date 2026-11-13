@@ -29,10 +29,10 @@
 | Time | Screen | Do | Say (voice-over, Hinglish is fine) |
 |---|---|---|---|
 | 0–8 s | Hero and safety badge | — | "ASHA workers send emergency referrals under pressure. One wrong digit in a phone number costs time a mother doesn't have. This is Matri-Kavach Vaani, built on Gnani Prisma and Timbre." |
-| 8–20 s | Capture | Click 🎙 **Record referral** and say: *"मरीज़ का रेफरेंस नंबर 1024 है। मरीज़ रामपुर गाँव से है। संपर्क नंबर 9 8 7 6 5, 4 3 2 1 0 है… माफ़ कीजिए, संपर्क नंबर 9 1 2 3 4, 5 6 7 8 9 है।"* Then stop. | "Prisma transcribes Hindi, numbers included." |
+| 8–20 s | Capture | Click 🎙 **Record referral** and speak naturally: *"रामपुर की मरीज़ है, नंबर 9 8 7 6 5, 4 3 2 1 0, डिलीवरी के लिए अस्पताल ले जाना है… माफ़ कीजिए, नंबर 9 1 2 3 4, 5 6 7 8 9 है।"* Then stop. | "She just talks, no form. Prisma transcribes the Hindi, numbers included." |
 | 20–35 s | Orange conflict panel | Click **🔊 Ask with Timbre & listen**. Let Timbre ask. Answer **"हाँ"** and show the rejection. Then answer **"दूसरा"**. | "Two numbers, so it doesn't guess. Timbre asks which one is right. 'Haan' isn't an answer. 'Doosra' is." |
 | 35–45 s | Fields and Evidence Passport | Point to the "conflict resolved" chip and the passport row "Conflicts resolved 1/1". | "Both numbers stay in the history. Every field shows where its value came from." |
-| 45–55 s | Read-back | Let the Timbre read-back play (digit by digit), tick the box, click **Confirm**, then **Submit**. | "Timbre reads every digit back. Nothing is submitted until the worker approves this exact version." |
+| 45–55 s | Read-back + spoken confirmation | Let the Timbre read-back play (digit by digit). With hands-free on, Timbre asks "क्या सभी विवरण सही हैं?". Say **"हाँ, सब सही है"**, then click **Submit**. | "Timbre reads every digit back, and she confirms by voice, hands-free. A bare 'haan' isn't enough, and nothing is submitted until she approves this exact version." |
 | 55–60 s | Passport and safety-eval report | Show `benchmarks/results/safety_eval_report.md`. | "Zero false-ready referrals across 24 adversarial cases. Synthetic data only, not clinical." |
 
 **If Timbre or Prisma lags on the day**, use "Sample: conflicting numbers" and **Create draft** instead of recording, then continue from 20 s. The voice part of the story stays the same.
@@ -45,10 +45,10 @@
 >
 > 🗣️ The worker speaks the referral, and Prisma transcribes it, Devanagari numbers included.
 > ⚠️ If a detail is missing or two values conflict, it **doesn't guess**. Timbre asks in Hindi ("पहला या दूसरा?"), the worker answers by voice, and only that field changes.
-> 🔁 Every phone number is read back digit by digit, and nothing is submitted until the worker approves that exact version.
+> 🔁 Every phone number is read back digit by digit, and the worker confirms by voice ("हाँ, सब सही है"), hands-free. Nothing is submitted until she approves that exact version.
 > 🧾 An Evidence Passport shows what was heard, changed and approved.
 >
-> Safety eval: **0 false-ready referrals** across 24 adversarial transcripts and 10 bypass attempts. Synthetic data only. This is a prototype, not a clinical tool.
+> Safety eval: **0 false-ready referrals** across 24 adversarial transcripts and 15 bypass attempts. Synthetic data only. This is a prototype, not a clinical tool.
 >
 > Demo 👇 · Code: <GitHub link>
 >
@@ -68,19 +68,20 @@
 - **Problem:** Frontline health workers create maternal-emergency referrals under time pressure. Typing is slow, and wrong or missing details (a phone digit, a village) delay care. Voice dictation alone just moves the error somewhere else.
 - **Who will use it:** ASHA workers, ANMs and PHC staff who create or relay referrals. Many prefer speaking to typing.
 - **What it does:**
-  - The worker speaks the referral in Hindi or Hinglish, and Prisma transcribes it.
+  - The worker speaks the referral naturally in Hindi or Hinglish (no form, no fixed keywords), and Prisma transcribes it.
   - The app extracts the patient reference, village, contact and reason.
   - It detects missing, invalid and contradictory values, and Timbre asks a targeted Hindi question for each one. The spoken answer fills only that field. Non-answers and silence are rejected.
   - Spoken corrections never overwrite silently.
-  - Timbre reads the details back digit by digit, and the worker confirms the exact version.
+  - Timbre reads the details back digit by digit and asks "क्या सभी विवरण सही हैं?". The worker confirms that exact version by saying "हाँ, सब सही है" (a bare "haan" is not accepted), or with a checkbox.
   - A simulated referral is created, followed by an isolated demo handoff.
   - An Evidence Passport records what was heard, changed and approved.
 - **Gnani models/APIs used:**
   - Prisma STT: v2.5 hi-IN with ITN, plus an optional v3.0 codemix profile that sends `previous_text` context.
   - Timbre TTS: v2.5 (Nalini) for clarification questions and the read-back.
 - **Evidence:**
-  - 171 automated tests.
-  - False-ready safety eval: 0 false-ready, 0 bypasses and 0 non-answers accepted (24 transcripts, 10 attempts, 26 non-answers). With the guards deliberately broken, the eval catches 18 / 3 / 10.
+  - 186 automated tests.
+  - Natural speech: 56/56 fields, 0 wrong values, questions per draft down from 3.43 to 1.57 (14 fictional transcripts).
+  - False-ready safety eval: 0 false-ready, 0 bypasses and 0 non-answers accepted (24 transcripts, 15 bypass attempts, 26 non-answers). With the guards deliberately broken, the eval catches them.
   - Live Gnani run of the full conflict → voice answer → read-back loop.
   - Add the noise benchmark numbers from `benchmarks/results/audio_eval_report.md` if you ran it, labelled "Timbre-generated speech with added noise".
 - **Team / contributions:** *(fill in: name, and for each member what they built, e.g. backend, voice agent, UI, evaluation, demo)*

@@ -17,6 +17,9 @@ Research was done on 13 Nov 2026. Items marked **[unverified]** came only from s
 10. **Referral Evidence Passport.** It shows the case reference and version, how many fields are verified, voice clarifications, conflicts resolved, manual edits, whether the read-back covers the current version, Timbre audio, the worker-approved version, the referral ID and the handoff status. It contains no patient values.
 11. **Prisma context.** In the `codemix` profile, the question the assistant asked is sent to Prisma v3.0 as `previous_text`, so short replies ("दूसरा", "रामपुर") are transcribed with that context. This has not been verified live.
 
+12. **Natural-speech extraction.** The extractor understands phrasings like "X की मरीज़ / X की रहने वाली / X से आई हैं", a bare "नंबर …" followed by 10 digits, "ID/रेफरेंस 1024", and reasons like "…के लिए अस्पताल ले जाना / PHC भेजना है". These natural-speech patterns run only when no marker pattern matched. On 14 fictional transcripts: marker-only gave 30/56 fields and 3.43 questions per draft; with the fallback, **56/56 fields, 0 wrong values and 1.57 questions per draft** ([report](../benchmarks/results/natural_eval_report.md)). It also fixed a marker bug where "इस गाँव की मरीज़" produced the village name "की मरीज़".
+13. **Hands-free spoken confirmation.** After the Timbre read-back, Timbre asks "क्या सभी विवरण सही हैं?" and records the worker's answer. Only an unambiguous approval ("हाँ, सब सही है") confirms, and only for the version whose read-back audio was generated. A bare "हाँ" is rejected, any negative word never confirms, and the passport records `confirmed_by: voice`. The safety eval adds 5 voice-confirmation bypass attempts, and none of them succeeds.
+
 Safety design did not change. The clarification step never confirms anything. Every answer creates a new version, cancels any earlier read-back or confirmation, and the worker still has to listen to the read-back and confirm explicitly.
 
 ## Why this problem
@@ -56,7 +59,7 @@ None of these combines voice capture, a question for each missing field, digit-b
 Command: `py benchmarks\run_safety_eval.py`. The report is at [benchmarks/results/safety_eval_report.md](../benchmarks/results/safety_eval_report.md).
 
 - **Transcripts:** 24 synthetic transcripts (16 fixtures plus 8 adversarial ones: two contacts, two villages, two IDs, a landline-like number, 9 digits, all zeros, no markers, missing reason) were pushed straight to submit, skipping review. **0 were submitted with a wrong or missing value.** 18 were held for review or clarification.
-- **Bypass attempts:** 10 attempts were made, including skipping read-back, skipping the acknowledgement, confirming a stale version, editing after confirm, submitting after a voice correction, an open conflict, and a second idempotency key. **None of them got through.**
+- **Bypass attempts:** 15 attempts were made (5 of them voice-confirmation tricks), including skipping read-back, skipping the acknowledgement, confirming a stale version, editing after confirm, submitting after a voice correction, an open conflict, and a second idempotency key. **None of them got through.**
 - **Non-answers:** 26 non-answers ("हाँ", "ok", "kya?", "पता नहीं", ...) were sent as replies to a missing field or a conflict. **None of them was accepted.** "पहला" and "दूसरा" are allowed only as a choice in a conflict.
 - **Check that the eval works:** when the guards were deliberately broken, the same evaluation reported 18 false-ready, 3 bypasses and 10 accepted non-answers. So the zeros above are meaningful.
 - **Scope:** this checks the workflow guardrails on synthetic input only. It is not a measure of speech recognition accuracy and not a clinical validation.
@@ -76,6 +79,6 @@ The main metrics are **phone exact-match**, **wrong-value rate** (the dangerous 
 
 ## Honest limits
 
-- Field extraction from the first utterance uses rules and depends on markers such as "patient ID" and "village". The clarification loop is what handles natural, incomplete speech.
+- Extraction is rule-based (marker patterns first, then natural-speech patterns). Very free-form speech may still leave fields blank, which is the safe failure because the assistant then asks for them. The natural-speech numbers come from in-sample fixtures.
 - No measurement of WER/CER on real or noisy audio has been done yet. `benchmarks/score_transcripts.py` is the tool to use once synthetic recordings exist.
 - The `codemix` profile follows the Gnani docs but has not been checked end to end with a live key.

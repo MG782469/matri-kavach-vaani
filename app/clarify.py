@@ -58,6 +58,24 @@ def conflict_question(field, candidates, kind):
     return f'{_NOUN[field]} के लिए दो अलग जवाब मिले: पहला {a}, दूसरा {b}। सही कौन सा है?'
 
 
+CONFIRM_QUESTION = 'क्या सभी विवरण सही हैं? पुष्टि के लिए कहिए: हाँ, सब सही है। कुछ गलत हो तो कहिए: नहीं।'
+_CONF_NO = {'नहीं', 'नही', 'nahi', 'nahin', 'no', 'गलत', 'ग़लत', 'galat', 'wrong', 'मत', 'mat', 'रुकिए', 'ruko', 'cancel', 'रुको'}
+_CONF_AFFIRM = {'हाँ', 'हां', 'जी', 'haan', 'han', 'haa', 'ha', 'yes', 'ji', 'सब', 'sab', 'बिल्कुल', 'bilkul'}
+_CONF_CORRECT = {'सही', 'ठीक', 'sahi', 'theek', 'thik', 'correct', 'right'}
+_CONF_EXPLICIT = {'confirm', 'confirmed', 'कन्फर्म', 'पुष्टि'}
+
+
+def parse_confirmation(text):
+    """'yes' only for an unambiguous approval ("हाँ, सब सही है", "जी सही है", "confirm").
+    'no' if ANY negative word appears (conservative). '' for anything else, including a bare "हाँ"."""
+    words = {w.lower() for w in re.findall(r'[A-Za-z]+|[ऀ-ॿ]+', normalize_digits(text or ''))}
+    if words & _CONF_NO:
+        return 'no'
+    if words & _CONF_EXPLICIT or (words & _CONF_CORRECT and words & _CONF_AFFIRM):
+        return 'yes'
+    return ''
+
+
 def next_field(fields, conflicts=None):
     if conflicts:
         return next(k for k in REQUIRED if k in conflicts)

@@ -28,6 +28,14 @@ Interactive explorer: `http://localhost:8000/docs`. Synthetic data only. There i
   - If the value is different, it creates a conflict (both values kept, version+1, confirmation cancelled) and does **not** overwrite.
   - Returns 422 for incomplete values. The response adds `correction: {field, heard, value, matches_existing}`.
 
+## Spoken confirmation (hands-free)
+- `POST /api/cases/{id}/confirm/question-audio`: JSON body `{"expected_version": n}`. Returns Timbre WAV of "क्या सभी विवरण सही हैं? …". Live mode only.
+- `POST /api/cases/{id}/confirm/voice`: multipart field `expected_version`, plus `file` (sent to Prisma with the question as context) or `answer_text`.
+  - Allowed only when the read-back of this version has been prepared **and** its Timbre audio was generated (`audio_readback_version == version`). It also needs no conflicts and valid fields. Otherwise it returns 409.
+  - "हाँ, सब सही है", "जी सही है" or "confirm" confirms with `confirmed_by: voice`.
+  - Any "नहीं/गलत/no" returns 200 with decision `no`. It is logged and nothing is confirmed.
+  - A bare "हाँ" or anything unclear returns 422 and nothing changes.
+
 ## Review, confirm, submit
 - `PUT /api/cases/{id}/fields`: JSON body `{"fields": {...}, "expected_version": n}`. A manual edit.
   - Changed fields get the source `manual edit`.

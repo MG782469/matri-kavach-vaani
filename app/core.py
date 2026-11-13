@@ -39,6 +39,10 @@ class Case:
     sources: dict = field(default_factory=dict)
     # history of resolved conflicts: {field, candidates, chosen, how, version, at}
     resolutions: list = field(default_factory=list)
+    # version for which Timbre read-back AUDIO was generated (spoken confirmation needs it)
+    audio_readback_version: int | None = None
+    # 'checkbox' or 'voice' — how the current confirmation was given
+    confirmed_by: str | None = None
 
     def add_correction_conflict(self, key, new_value):
         """A spoken correction differs from the current value: keep both, ask the worker."""
@@ -82,7 +86,7 @@ class Case:
         return (not self.conflicts and self.reviewed_version == self.version and
                 self.reviewed_digest == digest(self.fields))
 
-    def confirm(self, expected_version=None, acknowledged=False):
+    def confirm(self, expected_version=None, acknowledged=False, method='checkbox'):
         if self.submitted: raise ValueError("Submitted case is immutable")
         if expected_version is not None and expected_version != self.version:
             raise ValueError("Case changed; review the latest version")
@@ -96,7 +100,10 @@ class Case:
         if self.can_submit(): return
         self.confirmed_version = self.version
         self.confirmation_digest = digest(self.fields)
+        self.confirmed_by = method
         self.log('worker_confirmed')
+        if method == 'voice':
+            self.log('worker_confirmed_by_voice')
 
     def can_submit(self):
         return not validate(self.fields) and not self.conflicts and self.confirmed_version == self.version and self.confirmation_digest == digest(self.fields)

@@ -11,7 +11,7 @@ from .timbre import synthesize, TimbreError, model_and_voice
 from .handoff import create_demo_handoff, BridgeError
 from .deploy_guard import public_mode, validate_public_config, correct_basic_auth
 from .prisma import transcribe, PrismaError, NothingHeard, profile_name
-from .clarify import question_for, parse_answer, resolve_choice, LABELS, QUESTIONS
+from .clarify import question_for, parse_answer, resolve_choice, parse_confirmation, LABELS, QUESTIONS, CONFIRM_QUESTION
 from .extraction import find_conflicts
 
 def gnani_key():
@@ -129,6 +129,8 @@ def evidence(case):
             'readback_current_version':case.can_confirm() or case.can_submit(),
             'timbre_audio_generated':'timbre_audio_generated_for_review' in ev,
             'worker_confirmed_version':case.confirmed_version if case.can_submit() else None,
+            'confirmed_by':case.confirmed_by if case.can_submit() else None,
+            'audio_readback_current_version':case.audio_readback_version==case.version,
             'submitted':case.submitted,'referral_id':case.referral_id,
             'handoff':demo_link_from_events(case)['status'],'synthetic_only':True}
 
@@ -250,6 +252,7 @@ def readback_audio(case_id:str, body:AudioReadbackInput):
         if current.submitted: raise ValueError('Submitted case cannot regenerate read-back')
         if current.fields != c.fields: raise ValueError('Fields changed during audio synthesis')
         current.mark_readback()
+        current.audio_readback_version = current.version
         current.log('timbre_audio_generated_for_review')
     try: STORE.mutate(case_id,apply, expected_version=body.expected_version)
     except CaseMissing: raise HTTPException(404,'Case not found')
@@ -354,6 +357,61 @@ async def voice_correct(case_id:str, field:str=Form(...), expected_version:int=F
     try: updated=modify_case(case_id, apply, expected_version)
     except ValueError as e: raise HTTPException(409,str(e))
     out=view(updated); out['correction']={'field':field,'heard':heard,'value':value,'matches_existing':same,'source':source}
+    return out
+
+class VersionInput(BaseModel):
+    expected_version: int
+
+def require_voice_confirmable(c, expected_version):
+    """Spoken approval is allowed only after the worker has had the Timbre read-back of THIS version."""
+    if c.submitted: raise HTTPException(409,'Submitted case cannot be changed')
+    if c.version != expected_version: raise HTTPException(409,'Case changed; refresh and try again')
+    if c.conflicts: raise HTTPException(409,'Resolve conflicting values first')
+    if validate(c.fields): raise HTTPException(409,'Complete and fix all fields first')
+    if not c.can_confirm(): raise HTTPException(409,'Prepare the read-back for the current version first')
+    if c.audio_readback_version != c.version:
+        raise HTTPException(409,'Play the Timbre read-back of this exact version before confirming by voice')
+
+@app.post('/api/cases/{case_id}/confirm/question-audio')
+def confirm_question_audio(case_id:str, body:VersionInput):
+    """Timbre asks: 'क्या सभी विवरण सही हैं? …' (live mode only)."""
+    if MODE!='live': raise HTTPException(400,'Timbre is unavailable in mock mode')
+    key=gnani_key()
+    if not key: raise HTTPException(503,'Missing GNANI_API_KEY')
+    c=get_case(case_id)
+    require_voice_confirmable(c, body.expected_version)
+    try: audio=synthesize(CONFIRM_QUESTION,key)
+    except TimbreError as e: raise HTTPException(e.status, str(e))
+    return Response(audio, media_type='audio/wav',headers={'Cache-Control':'no-store','X-Audio-Source':'gnani-timbre'})
+
+@app.post('/api/cases/{case_id}/confirm/voice')
+async def confirm_by_voice(case_id:str, expected_version:int=Form(...),
+                           answer_text:str|None=Form(None), file:UploadFile|None=File(None)):
+    """Hands-free approval. 'हाँ, सब सही है' confirms THIS version; any 'नहीं/गलत' never confirms;
+    a bare 'हाँ' or anything unclear is rejected and nothing changes."""
+    c=get_case(case_id)
+    require_voice_confirmable(c, expected_version)
+    if file is not None:
+        key=live_key()
+        audio=await read_audio(file)
+        heard=await run_in_threadpool(prisma_text, audio, file, key, CONFIRM_QUESTION)
+        source='prisma'
+    elif answer_text and answer_text.strip():
+        if len(answer_text)>200: raise HTTPException(413,'Answer too long')
+        heard=answer_text.strip(); source='typed'
+    else:
+        raise HTTPException(422,'Provide a spoken or typed answer')
+    decision=parse_confirmation(heard)
+    if decision=='':
+        raise HTTPException(422,f'Heard "{heard[:80]}". To confirm say "हाँ, सब सही है"; if something is wrong say "नहीं". Nothing changed.')
+    def apply(current):
+        if decision=='yes':
+            current.confirm(expected_version=expected_version, acknowledged=True, method='voice')
+        else:
+            current.log('worker_rejected_readback_by_voice')
+    try: updated=modify_case(case_id, apply, expected_version)
+    except ValueError as e: raise HTTPException(409,str(e))
+    out=view(updated); out['voice_confirmation']={'decision':decision,'heard':heard,'source':source}
     return out
 
 @app.post('/api/cases/{case_id}/submit')

@@ -1,6 +1,6 @@
 # Matri-Kavach Vaani
 
-**An error-aware Hindi/Hinglish voice assistant that turns a frontline health worker's spoken referral into a verified record.** It works by finding missing or contradictory details, asking for each one aloud, reading every critical digit back, and refusing to submit anything the worker has not explicitly confirmed.
+**An error-aware Hindi/Hinglish voice assistant that turns a frontline health worker's spoken referral into a verified record.** It works by finding missing or contradictory details, asking for each one aloud, reading every critical digit back, and refusing to submit anything the worker has not explicitly confirmed. The confirmation can be spoken too, so the whole flow is hands-free.
 
 Built on **Gnani Prisma** (speech-to-text) and **Gnani Timbre** (text-to-speech) for the Great Indian AI Internship Challenge.
 
@@ -11,7 +11,7 @@ Built on **Gnani Prisma** (speech-to-text) and **Gnani Timbre** (text-to-speech)
    ▲                                                                                            │
    └──────────────────────────── repeat until every field is complete and settled ◀─────────────┘
                                          │
-             Timbre reads back digit by digit ─▶ Worker confirms THIS version ─▶ Simulated referral ─▶ Isolated demo handoff
+             Timbre reads back digit by digit ─▶ "क्या सब सही है?" ─▶ Worker says "हाँ, सब सही है" (or ticks) for THIS version ─▶ Simulated referral ─▶ Isolated demo handoff
 ```
 
 ## The problem
@@ -29,11 +29,13 @@ A wrong digit in a phone number, or the wrong village, costs time that a mother 
 
 | Capability | What happens |
 |---|---|
+| **Understands natural speech** | Markers like "patient ID" are not needed. From "रामपुर की मरीज़ है, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है", all four fields are filled. Natural-speech patterns run only when no marker matched, so marker-based behaviour is unchanged. Questions per draft dropped from 3.43 to 1.57, with 0 wrong values. |
 | **Voice clarification agent** | If a field is missing or invalid, Timbre asks in Hindi ("गाँव का नाम नहीं मिला। कृपया गाँव का नाम बताइए।"). The worker answers aloud, Prisma transcribes the answer, and **only that one field** is filled. |
 | **Contradiction-aware** | If the worker gave two different phone numbers, the app picks neither. Timbre asks "पहला … दूसरा … सही कौन सा है?" and the worker can answer "पहला/दूसरा", say the value, or tap it. |
 | **Corrections never overwrite silently** | When a spoken correction such as "रामपुर नहीं, सोनपुर" differs from the current value, both values are kept as a conflict, any earlier confirmation is cancelled, and the agent asks which one is right. The history records both values. |
 | **Built for real Prisma output** | It handles Devanagari numerals (९८७६…), ordinals normalised by ITN ("१st" → पहला), spoken digit words ("नौ आठ सात…", "double five"), English markers written in Devanagari ("विलेज", "रीज़न") and negation ("X नहीं, Y"). |
 | **Rejects non-answers** | "हाँ", "ok", "kya?", "पता नहीं" and silence are never accepted as a value. Negation in a clinical reason ("साँस नहीं आ रही") is kept as said. |
+| **Hands-free spoken confirmation** | After the read-back, Timbre asks "क्या सभी विवरण सही हैं?". **"हाँ, सब सही है"** confirms this exact version. A bare "हाँ" is not enough, and any "नहीं/गलत" never confirms. Spoken confirmation is allowed only after the Timbre read-back **audio** of the same version. The passport records whether the confirmation was by voice or by checkbox. |
 | **ICAO-style read-back** | Timbre reads the phone number one digit at a time, grouped 5+5 ("9 8 7 6 5, 4 3 2 1 0"). |
 | **Verification state for each field** | Each field shows Conflict, Missing, Needs read-back, Read back or ✓ Confirmed, plus where its value came from (speech, voice answer, manual edit). These states come from recorded events, not from invented confidence scores. |
 | **Evidence Passport** | A record of what was heard, changed and approved: fields verified, conflicts resolved, whether the read-back covers the current version, and which version the worker approved. It contains no patient values. |
@@ -50,10 +52,11 @@ A wrong digit in a phone number, or the wrong village, costs time that a mother 
 
 | What | Result | How to reproduce |
 |---|---|---|
-| Automated tests (offline, Gnani stubbed) | **171 / 171 pass** | `py -m unittest discover -s tests` |
-| **False-ready safety eval:** 24 transcripts pushed straight to submit, 10 bypass attempts, 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** When the guards are deliberately broken, the same eval reports 18 / 3 / 10. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
+| Automated tests (offline, Gnani stubbed) | **186 / 186 pass** | `py -m unittest discover -s tests` |
+| **False-ready safety eval:** 24 transcripts pushed straight to submit, 15 bypass attempts (5 of them voice-confirmation tricks), 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** When the guards are deliberately broken, the same eval catches them. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
+| **Natural-speech extraction** (14 fictional transcripts) | Marker-only: 30/56 fields, 3.43 questions per draft. **With natural fallback: 56/56 fields, 0 wrong values, 1.57 questions per draft** | `py benchmarks\run_natural_eval.py` → [report](benchmarks/results/natural_eval_report.md) |
 | Field-extraction fixtures (hand-written synthetic transcripts) | 16/16 cases, 64/64 fields | `py benchmarks\run_benchmark.py` → [report](benchmarks/results/stage9_report.md) |
-| Live Gnani run (developer key, synthetic case) | Prisma transcribed a Hindi referral with Devanagari numerals and all 4 fields were extracted. Timbre asked a conflict question, the spoken answer resolved it, and the Timbre read-back was generated. | Manual run on 12–13 Nov 2026. Use `py scripts\live_smoke_test.py` to repeat it. |
+| Live Gnani run (developer key, synthetic case) | Prisma transcribed a Hindi referral with Devanagari numerals and all 4 fields were extracted. Timbre asked a conflict question, the spoken answer resolved it, and the Timbre read-back was generated. | Manual run on 12–13 Nov 2026. Use `py scripts\live_smoke_test.py` (15 checks, including spoken confirmation) to repeat it. |
 | Noise robustness (clean / 10 dB / 5 dB / 8 kHz phone) | Run with your key. The report separates wrong values (dangerous) from abstentions (safe, because the agent asks) and false-ready drafts. | `py benchmarks\run_tts_benchmark.py C:\private\tts_bench` |
 
 The safety and fixture results check the workflow guardrails on synthetic input. They do not measure speech-recognition accuracy, and none of this is clinical validation.
@@ -94,7 +97,7 @@ py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## Limits
 
-- The first spoken utterance is parsed with rules that depend on markers such as "patient ID" or "गाँव". The clarification loop is what handles natural, incomplete speech.
+- Extraction is rule-based: marker patterns first, then natural-speech patterns. Very free-form speech can still leave fields blank. That is the safe failure, because the assistant then asks for them. The natural-speech numbers come from hand-written fixtures, not independent data.
 - The noise benchmark uses Timbre-generated speech with noise added artificially. It is a robustness check, not a field recording study.
 - The `codemix` profile follows the Gnani docs but has not been checked end to end with a live key.
 
@@ -111,7 +114,7 @@ app/static/index.html Single-page UI: recorder (16 kHz WAV), voice assistant, fi
 benchmarks/           Safety eval, fixture benchmark, TTS noise benchmark, audio variant generator
 scripts/              check_gnani.py (key diagnosis), live_smoke_test.py (live end-to-end check)
 docs/                 Architecture, API, evidence, demo and submission kit
-tests/                171 offline tests
+tests/                186 offline tests
 ```
 
 More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)
