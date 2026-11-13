@@ -182,8 +182,8 @@ button{cursor:pointer}
   .layout{display:block;padding:0}
   .phone{height:100dvh;border-radius:0;border:0}
   .mobile-only{display:grid}
-  .side{position:fixed;left:0;right:0;bottom:0;height:auto;max-height:82dvh;border-radius:18px 18px 0 0;transform:translateY(105%);transition:transform .25s ease;z-index:20;padding-top:8px}
-  .side.open{transform:none}
+  .side{position:fixed;left:0;right:0;bottom:0;height:auto;max-height:82dvh;border-radius:18px 18px 0 0;transform:translateY(110%);visibility:hidden;transition:transform .25s ease,visibility 0s linear .25s;z-index:20;padding-top:8px}
+  .side.open{transform:none;visibility:visible;transition:transform .25s ease,visibility 0s}
   .sheet-handle{display:block;width:44px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 12px}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:15;display:none}
   .scrim.open{display:block}
