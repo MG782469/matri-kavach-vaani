@@ -13,10 +13,10 @@ LABELS = {'patient_ref': 'Patient reference', 'village': 'Village',
           'contact': 'Contact number', 'referral_reason': 'Referral reason'}
 
 QUESTIONS = {
-    'patient_ref': 'मरीज़ का रेफरेंस नंबर नहीं मिला। कृपया रेफरेंस नंबर बताइए।',
-    'village': 'गाँव का नाम नहीं मिला। कृपया गाँव का नाम बताइए।',
-    'contact': 'संपर्क नंबर नहीं मिला या अधूरा है। कृपया दस अंकों का नंबर एक-एक अंक करके बताइए।',
-    'referral_reason': 'रेफरल का कारण नहीं मिला। कृपया रेफरल का कारण बताइए।',
+    'patient_ref': 'मरीज़ का रेफ़रेंस नंबर बताइए।',
+    'village': 'मरीज़ के गाँव का नाम बताइए।',
+    'contact': 'संपर्क नंबर बताइए — दस अंक, एक-एक करके।',
+    'referral_reason': 'रेफ़रल का कारण बताइए।',
 }
 
 # Spoken digits in Hindi (Devanagari + romanised) and English. Prisma v2.5 with
@@ -157,9 +157,11 @@ def spoken_digits(text):
 
 _REF_NOISE = re.compile(r'^(?:patient|मरीज़?|पेशेंट|रोगी|का|की|के|reference|ref|रेफरेंस|रिफरेंस|संदर्भ|'
                         r'id|आईडी|number|no|नंबर|नम्बर|is|hai|है|मेरा|mera)$', re.I)
-_VILLAGE_LEAD = re.compile(r'^\s*(?:(?:मेरे|मेरा|हमारे|हमारा|उनका|उसका|mera|hamara)\s+)?'
+# Answers often echo the question: "मरीज़ के गाँव का नाम रामपुर है", "रेफ़रल का कारण ... है".
+_VILLAGE_LEAD = re.compile(r'^\s*(?:(?:मेरे|मेरा|हमारे|हमारा|उनका|उसका|उनके|इनके|mera|hamara|unka)\s+)?'
+                           r'(?:(?:मरीज़?|पेशेंट|patient|mareez|mariz)\s+(?:के|का|की|ke|ka|ki)\s+)?'
                            r'(?:गाँव|गांव|गाव|village|gaon)\s*(?:का\s+नाम|ka\s+naam|name|is|:|-)?\s*', re.I)
-_REASON_LEAD = re.compile(r'^\s*(?:(?:रेफरल|referral)\s+)?(?:का\s+)?(?:कारण|वजह|reason)\s*(?:है|hai|is|:|-)?\s*', re.I)
+_REASON_LEAD = re.compile(r'^\s*(?:(?:रेफ़?रल|रिफ़?रल|referral)\s+)?(?:का\s+|ka\s+)?(?:कारण|वजह|reason|karan|wajah)\s*(?:है|hai|is|:|-)?\s*', re.I)
 _TRAIL = re.compile(r'[\s,.;:।!?-]+$')
 _UNKNOWN = re.compile(r'पता\s+नहीं|नहीं\s+पता|मालूम\s+नहीं|नहीं\s+मालूम|\bpata\s+nahi?n?\b|\bnahi?n?\s+pata\b|'
                       r'\bmaloom\s+nahi?n?\b|don\'?t\s+know|not\s+sure|\bunknown\b', re.I)

@@ -8,7 +8,7 @@ The health worker speaks a referral. **Vaani** finds what is missing or contradi
 
 ![Gnani Prisma](https://img.shields.io/badge/Gnani-Prisma%20STT-0a8f7e?style=flat-square)
 ![Gnani Timbre](https://img.shields.io/badge/Gnani-Timbre%20TTS-0a8f7e?style=flat-square)
-![Tests](https://img.shields.io/badge/tests-194%20passing-2ea44f?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-199%20passing-2ea44f?style=flat-square)
 ![Safety eval](https://img.shields.io/badge/false--ready-0%20%2F%2024-2ea44f?style=flat-square)
 ![Data](https://img.shields.io/badge/data-synthetic%20only-f0a500?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)
@@ -38,7 +38,7 @@ Built for the **Great Indian AI Internship Challenge** by Gnani AI.
 | **Who** | ASHA workers, ANMs and PHC staff. Many of them prefer speaking to typing. |
 | **What it does** | The worker speaks naturally. If a detail is missing or two values conflict, Vaani **does not guess**: it asks aloud in Hindi, listens to the answer, reads every digit back, and submits only after the worker confirms by voice. |
 | **Gnani models** | **Prisma** (speech-to-text) hears the referral and every answer. **Timbre** (text-to-speech) asks the questions and reads the details back. |
-| **Proof** | 194 automated tests · **0 false-ready referrals** across 24 adversarial cases and 15 bypass attempts · a live Gnani run of the conflict → spoken answer → read-back loop. |
+| **Proof** | 199 automated tests · **0 false-ready referrals** across 24 adversarial cases and 15 bypass attempts · a live Gnani run of the conflict → spoken answer → read-back loop. |
 
 ## The problem
 
@@ -50,7 +50,9 @@ Built for the **Great Indian AI Internship Challenge** by Gnani AI.
 
 ```mermaid
 flowchart LR
-    A["🎙 Worker speaks<br/>(natural Hindi / Hinglish)"] --> B["Gnani Prisma<br/>transcript"]
+    S["👋 Hi → भाषा"] --> E["☰ Choose emergency<br/>(Matri-Kavach list,<br/>worker-selected)"]
+    E --> A["🎙 Patient details by voice<br/>all at once, or Vaani asks<br/>one by one"]
+    A --> B["Gnani Prisma<br/>transcript"]
     B --> C{"Fields complete<br/>and consistent?"}
     C -- "missing / invalid" --> D["Timbre asks for<br/>that one field"]
     C -- "two different values" --> E["Timbre asks<br/>'पहला या दूसरा?'"]
@@ -62,14 +64,14 @@ flowchart LR
     H -- "नहीं" --> I["Which field?<br/>Spoken correction → conflict"]
     I --> E
     H -- "yes" --> J["Simulated referral<br/>+ Evidence Passport"]
-    J --> K["Isolated demo handoff<br/>(no patient data sent)"]
+    J --> K["Matri-Kavach demo case<br/>with the chosen emergency<br/>(no patient data sent)"]
 ```
 
 ## Two ways to use it
 
 | **Chat view: `/chat`** | **Dashboard: `/`** |
 |---|---|
-| A mobile-first chat built around **voice notes**, the way ASHAs already work. The worker sends a voice note and Vaani replies with Timbre voice notes. Quick-reply chips cover "पहला / दूसरा" and "हाँ, सब सही है". Draft cards show the state of each field, and a case panel (a bottom sheet on mobile) holds the Evidence Passport. **Hands-free:** after Vaani speaks, the mic opens by itself. Dark mode is included. | A reviewer and audit view. Every field can be edited, and it shows the read-back controls, the full activity timeline and the raw audit JSON. |
+| The **Matri-Kavach conversation**, rebuilt voice-first. Say **Hi**, choose a language, then **☰ choose the emergency** from the same list Matri-Kavach uses. Give the patient details **all at once by voice**, or let Vaani **ask one by one** (Timbre asks, Prisma hears). It is a mobile-first chat built around **voice notes**, the way ASHAs already work. The worker sends a voice note and Vaani replies with Timbre voice notes. Quick-reply chips cover "पहला / दूसरा" and "हाँ, सब सही है". Draft cards show the state of each field, and a case panel (a bottom sheet on mobile) holds the Evidence Passport. **Hands-free:** after Vaani speaks, the mic opens by itself. Dark mode is included. | A reviewer and audit view. Every field can be edited, and it shows the read-back controls, the full activity timeline and the raw audit JSON. |
 
 <p align="center"><img src="docs/images/chat-approved.jpg" width="72%" alt="Approved referral: confirmed by voice, every field confirmed, Evidence Passport shows v1 approved by voice"></p>
 <p align="center"><sub>After "हाँ, सब सही है": confirmed by voice, every field shows ✓, and the Evidence Passport records <b>v1 · by voice</b>.</sub></p>
@@ -79,7 +81,7 @@ flowchart LR
 | | Capability | What happens |
 |---|---|---|
 | 🗣 | **Understands natural speech** | "रामपुर की मरीज़ है, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है" fills all four fields, without keywords like "patient ID". |
-| ❓ | **Asks instead of guessing** | If a field is missing, Timbre asks in Hindi ("गाँव का नाम नहीं मिला। कृपया गाँव का नाम बताइए।"). The spoken answer fills **only that field**. |
+| ❓ | **Asks instead of guessing** | If a field is missing, Timbre asks in Hindi ("मरीज़ के गाँव का नाम बताइए।"). The spoken answer fills **only that field**. |
 | ⚠️ | **Contradiction-aware** | If it hears two different phone numbers, it picks neither and asks "पहला … दूसरा … सही कौन सा है?". The worker answers "पहला/दूसरा", says the value, or taps it. |
 | 🔁 | **No silent overwrites** | A spoken correction ("रामपुर नहीं, सोनपुर") keeps both values as a conflict and cancels any earlier approval. The history keeps both values. |
 | 🔢 | **ICAO-style read-back** | Phone numbers are read one digit at a time, grouped 5+5: "9 8 7 6 5, 4 3 2 1 0". |
@@ -100,7 +102,7 @@ flowchart LR
 
 | What | Result | Reproduce |
 |---|---|---|
-| Automated tests (offline, with Gnani stubbed) | **194 / 194 pass** | `py -m unittest discover -s tests` |
+| Automated tests (offline, with Gnani stubbed) | **199 / 199 pass** | `py -m unittest discover -s tests` |
 | **False-ready safety eval:** 24 transcripts pushed straight to submit, 15 bypass attempts (5 of them voice-confirmation tricks), 26 non-answers | **0 false-ready · 0 bypasses · 0 non-answers accepted.** With the guards deliberately broken, the same eval catches the failures. | `py benchmarks\run_safety_eval.py` → [report](benchmarks/results/safety_eval_report.md) |
 | **Natural-speech extraction** (14 fictional transcripts) | Marker words only: 30/56 fields and 3.43 questions per draft. **With natural speech: 56/56 fields, 0 wrong values, 1.57 questions per draft.** | `py benchmarks\run_natural_eval.py` → [report](benchmarks/results/natural_eval_report.md) |
 | Fixture benchmark (hand-written transcripts) | 16/16 cases, 64/64 fields | `py benchmarks\run_benchmark.py` → [report](benchmarks/results/stage9_report.md) |
@@ -188,7 +190,7 @@ app/static/voice.js    Shared recorder: MediaRecorder → 16 kHz mono WAV + live
 benchmarks/            Safety eval, natural-speech eval, fixture benchmark, TTS noise benchmark
 scripts/               check_gnani.py (key diagnosis), live_smoke_test.py (live end-to-end check)
 docs/                  Architecture, API, evidence, demo and submission kit, screenshots
-tests/                 194 offline tests
+tests/                 199 offline tests
 ```
 
 More detail: [Architecture](docs/ARCHITECTURE.md) · [API](docs/API_CONTRACT.md) · [Innovation & evidence](docs/INNOVATION_AND_EVIDENCE.md) · [Demo & submission kit](docs/SUBMISSION_KIT.md) · [Deployment](docs/STAGE10_DEPLOYMENT.md)

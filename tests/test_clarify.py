@@ -51,6 +51,13 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_answer('referral_reason', 'कारण है अस्पताल तक वाहन की व्यवस्था।'), 'अस्पताल तक वाहन की व्यवस्था')
         self.assertEqual(parse_answer('referral_reason', 'ok'), '')
 
+    def test_answers_that_echo_the_question(self):
+        # Workers often repeat the question: "मरीज़ के गाँव का नाम रामपुर है".
+        self.assertEqual(parse_answer('village', 'मरीज़ के गाँव का नाम रामपुर है'), 'रामपुर')
+        self.assertEqual(parse_answer('village', 'mareez ka gaon Rampur hai'), 'Rampur')
+        self.assertEqual(parse_answer('referral_reason', 'रेफ़रल का कारण भारी रक्तस्राव है'), 'भारी रक्तस्राव है')
+        self.assertEqual(parse_answer('patient_ref', 'मरीज़ का रेफ़रेंस नंबर 1024 है'), '1024')
+
     def test_unknown_field_rejected(self):
         self.assertEqual(parse_answer('diagnosis', 'anything'), '')
 

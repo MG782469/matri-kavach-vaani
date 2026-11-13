@@ -41,7 +41,7 @@ class ChatUiTests(unittest.TestCase):
         self.assertIn('not for clinical use', CHAT)
 
     def test_server_text_is_escaped_before_innerHTML(self):
-        self.assertIn("const esc = t =>", CHAT)
+        self.assertRegex(CHAT, r"const esc = \w+ =>")
         for risky in ("esc(text)", "esc(v)", "esc(x.referral_id)", "esc(r.backend_ref)", "esc(opts.heard"):
             self.assertIn(risky, CHAT, risky)
 
@@ -58,6 +58,32 @@ class ChatUiTests(unittest.TestCase):
         html = (STATIC / 'index.html').read_text(encoding='utf-8')
         self.assertIn('href="/chat"', html)
         self.assertIn('href="/"', CHAT)
+
+    def test_matri_kavach_opening_flow(self):
+        # Hi -> language -> emergency list -> details (all at once / one by one)
+        for marker in ("function hello()", "function greet()", "function chooseLang(", "function askEmergency()",
+                       "function openList()", "function chooseEmergency(", "function askDetails()", "async function startGuided()"):
+            self.assertIn(marker, CHAT, marker)
+        self.assertIn("'English'", CHAT)
+        self.assertIn("हिंदी (Hindi)", CHAT)
+
+    def test_emergency_list_matches_backend_scenarios(self):
+        import re
+        from app.handoff import SCENARIOS
+        ids = set(re.findall(r"\{id:'(\w+)'", CHAT))
+        self.assertEqual(ids - {'other'}, SCENARIOS)                       # every choice can be handed off
+        self.assertIn("noReferral:true", CHAT)                            # "call the doctor" never creates a referral
+        self.assertIn("scenario: emergency.id", CHAT)                     # handoff uses the worker's own choice
+
+    def test_clinical_advisor_and_no_diagnosis_wording(self):
+        self.assertIn('Moluvi Gufran', CHAT)
+        self.assertIn('never diagnoses', CHAT)
+
+    def test_guided_draft_has_no_fields_so_every_field_is_asked(self):
+        from app.extraction import parse_transcript
+        for name in ('Heavy bleeding after delivery (PPH)', 'Fits or eclampsia', 'Obstructed labour',
+                     'Bleeding before delivery (APH)', 'Fever after delivery (possible sepsis)', 'Newborn emergency'):
+            self.assertEqual(set(parse_transcript('Guided referral · ' + name).values()), {''}, name)
 
     def test_public_mode_protects_chat(self):
         with patch.dict(os.environ, {'DEMO_PUBLIC': '1', 'DEMO_ACCESS_PASSWORD': 'a-very-long-demo-pass'}):

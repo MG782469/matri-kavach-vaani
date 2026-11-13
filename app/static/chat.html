@@ -151,8 +151,8 @@ button{cursor:pointer}
 .side{height:min(880px,calc(100dvh - 48px));overflow-y:auto;background:var(--panel);border-radius:22px;box-shadow:var(--shadow);padding:20px 20px 24px;border:1px solid rgba(0,0,0,.05)}
 .side h2{margin:0;font-size:18px;letter-spacing:-.01em}
 .side .sub{color:var(--meta);font-size:12.5px;margin:3px 0 14px}
-.steps{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin:4px 0 16px}
-.steps div{text-align:center;font-size:10.5px;color:var(--meta)}
+.steps{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin:4px 0 16px}
+.steps div{text-align:center;font-size:9.5px;color:var(--meta);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .steps div i{display:block;height:5px;border-radius:3px;background:var(--line);margin-bottom:5px}
 .steps div.done i{background:var(--accent2)}
 .steps div.now i{background:linear-gradient(90deg,var(--accent2) 50%,var(--line) 50%)}
@@ -177,6 +177,38 @@ button{cursor:pointer}
 .sheet-handle{display:none}
 .mobile-only{display:none}
 .scrim{display:none}
+/* interactive reply buttons inside a bot message (like the Matri-Kavach "English / हिंदी" buttons) */
+.ibtns{margin:8px -9px -6px;border-top:1px solid var(--line)}
+.ibtns button{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;background:none;border:0;border-top:1px solid var(--line);padding:10px 8px;color:var(--accent);font-weight:650;font-size:14.5px}
+.ibtns button:first-child{border-top:0}
+.ibtns button:hover:not(:disabled){background:rgba(0,0,0,.035)}
+.ibtns button:disabled{color:var(--meta);cursor:default}
+.ibtns button.picked{color:var(--accent);font-weight:800}
+.bubble.has-btns{min-width:250px}
+.small-note{display:block;margin-top:6px;font-size:11.5px;color:var(--meta)}
+.emer-chip{display:inline-flex;align-items:center;gap:6px;background:#fff1d6;color:#8a5410;border:1px solid #f0d39e;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700;margin-top:4px}
+/* list sheet inside the phone (like a messaging-app list message) */
+.lscrim{position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:30;display:none}
+.lscrim.open{display:block}
+.lsheet{position:absolute;left:0;right:0;bottom:0;z-index:31;background:var(--in);border-radius:16px 16px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,.2);transform:translateY(105%);visibility:hidden;transition:transform .22s ease,visibility 0s linear .22s;max-height:86%;display:flex;flex-direction:column}
+.lsheet.open{transform:none;visibility:visible;transition:transform .22s ease,visibility 0s}
+.lsheet .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 4px}
+.lsheet h3{margin:4px 0 2px;text-align:center;font-size:16px}
+.lsheet .lsub{text-align:center;font-size:11.5px;color:var(--meta);margin:0 12px 6px}
+.lsheet .litems{overflow-y:auto;padding:0 6px;flex:1 1 auto;min-height:0}
+.lsheet .lsend{flex-shrink:0}
+.litem{display:flex;align-items:center;gap:12px;padding:11px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.litem:last-child{border-bottom:0}
+.litem .lt{flex:1;min-width:0}
+.litem .lt b{display:block;font-weight:600;font-size:14.5px}
+.litem .lt small{display:block;color:var(--meta);font-size:11.5px;margin-top:1px}
+.litem .lt small.signed{color:var(--accent)}
+.litem .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--meta);flex-shrink:0;display:grid;place-items:center}
+.litem.sel .radio{border-color:var(--accent2)}
+.litem.sel .radio::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--accent2)}
+.litem.disabled{opacity:.6}
+.lsheet .lsend{margin:10px 14px 14px;border:0;border-radius:24px;background:var(--accent2);color:#fff;font-weight:700;padding:12px;font-size:15px}
+.lsheet .lsend:disabled{opacity:.5}
 /* ---------- mobile ---------- */
 @media (max-width: 900px){
   .layout{display:block;padding:0}
@@ -226,6 +258,14 @@ button{cursor:pointer}
       </div>
       <button class="fab" id="fab" type="button" onclick="fabAction()" aria-label="Record voice message"></button>
     </form>
+    <div class="lscrim" id="lscrim" onclick="closeList()"></div>
+    <div class="lsheet" id="lsheet" role="dialog" aria-modal="true" aria-labelledby="ltitle">
+      <div class="grab"></div>
+      <h3 id="ltitle">Choose emergency</h3>
+      <p class="lsub" id="lsub"></p>
+      <div class="litems" id="litems" role="radiogroup"></div>
+      <button class="lsend" id="lsend" type="button" disabled>Send</button>
+    </div>
   </section>
 
   <div class="scrim" id="scrim" onclick="openSheet(false)"></div>
@@ -234,6 +274,7 @@ button{cursor:pointer}
     <h2>Referral case</h2>
     <p class="sub" id="caseSub">No referral yet — speak or pick a sample.</p>
     <div class="steps" id="steps"></div>
+    <div class="section"><h3>Emergency · worker-selected</h3><div id="emerBox" class="empty">Not chosen yet. The worker picks it from the Matri-Kavach list. Vaani never diagnoses.</div></div>
     <div class="section"><h3>Fields · verification state</h3><div id="fieldsBox" class="empty">Fields appear after the first message.</div></div>
     <div class="section"><h3>Evidence passport</h3><div id="passportBox" class="empty">What was heard, changed and approved — no patient values.</div></div>
     <div class="section"><h3>Voice settings</h3>
@@ -242,10 +283,11 @@ button{cursor:pointer}
     </div>
     <div class="section"><h3>How it works</h3>
       <ol class="how">
-        <li><b>Speak</b> the referral naturally — Gnani <b>Prisma</b> transcribes it.</li>
-        <li>Missing or <b>conflicting</b> details? Vaani asks in Hindi with Gnani <b>Timbre</b> — your answer fills only that field.</li>
-        <li>Timbre <b>reads every digit back</b>; say <b>“हाँ, सब सही है”</b> to approve this exact version.</li>
-        <li>Submit a <b>simulated</b> referral and open an isolated demo case.</li>
+        <li>Say <b>Hi</b>, choose a language, then <b>choose the emergency</b> from the same list Matri-Kavach uses. You choose it; Vaani never diagnoses.</li>
+        <li><b>Patient details by voice:</b> say everything at once, or let Vaani <b>ask one by one</b>. Gnani <b>Prisma</b> transcribes each answer.</li>
+        <li>Missing or <b>conflicting</b> details? Vaani asks with Gnani <b>Timbre</b>, and your answer changes only that field.</li>
+        <li>Timbre <b>reads every digit back</b>. Say <b>“हाँ, सब सही है”</b> to approve this exact version.</li>
+        <li>Send a <b>simulated</b> referral. The Matri-Kavach demo case opens with your chosen emergency, and no patient details are sent.</li>
       </ol>
     </div>
     <div class="links"><a href="/">Dashboard view</a><a href="/docs" target="_blank" rel="noopener">API</a><button type="button" onclick="toggleTheme()">🌗 Theme</button></div>
@@ -256,24 +298,115 @@ button{cursor:pointer}
 <script src="/static/voice.js"></script>
 <script>
 'use strict';
-/* ================= state ================= */
+/* =====================================================================
+   Vaani chat — the Matri-Kavach conversation, voice-first on Gnani.
+   Hi → language → choose emergency (Matri-Kavach list) → patient details
+   by voice (all at once, or Vaani asks one by one) → clarify / resolve
+   conflicts → Timbre read-back → "हाँ, सब सही है" → send → demo handoff.
+   ===================================================================== */
 const $ = id => document.getElementById(id);
 const FIELDS = ['patient_ref','village','contact','referral_reason'];
-const LABEL = {patient_ref:'रेफरेंस',village:'गाँव',contact:'संपर्क नंबर',referral_reason:'रेफरल कारण'};
-const LABEL_EN = {patient_ref:'Reference',village:'Village',contact:'Contact',referral_reason:'Reason'};
+const LABEL = {
+  hi: {patient_ref:'रेफ़रेंस', village:'गाँव', contact:'संपर्क नंबर', referral_reason:'रेफ़रल कारण'},
+  en: {patient_ref:'Reference', village:'Village', contact:'Contact number', referral_reason:'Referral reason'}
+};
 const STATE_TXT = {conflict:'⚠ Conflict',missing:'Missing',invalid:'Needs fixing',needs_readback:'Needs read-back',read_back:'Read back',confirmed:'✓ Confirmed'};
-const SCENARIOS = [['bleeding','प्रसव के बाद भारी रक्तस्राव'],['fits','दौरे / एक्लेम्पसिया'],['obstructed','रुका हुआ प्रसव'],['aph','प्रसव से पहले रक्तस्राव'],['sepsis','प्रसव के बाद बुखार'],['newborn','नवजात आपात स्थिति']];
+/* Same emergency list as Matri-Kavach. The worker chooses; Vaani never classifies. */
+const EMERGENCIES = [
+  {id:'bleeding',  en:'Heavy bleeding after delivery (PPH)',    hi:'प्रसव के बाद भारी रक्तस्राव (PPH)'},
+  {id:'fits',      en:'Fits or eclampsia',                      hi:'दौरे या एक्लेम्पसिया'},
+  {id:'obstructed',en:'Obstructed labour',                      hi:'रुका हुआ प्रसव'},
+  {id:'aph',       en:'Bleeding before delivery (APH)',         hi:'प्रसव से पहले रक्तस्राव (APH)'},
+  {id:'sepsis',    en:'Fever after delivery (possible sepsis)', hi:'प्रसव के बाद बुखार (संभावित सेप्सिस)'},
+  {id:'newborn',   en:'Newborn emergency',                      hi:'नवजात आपात स्थिति'},
+  {id:'other',     en:'Other: call the doctor now',             hi:'अन्य: तुरंत डॉक्टर को कॉल करें', noReferral:true}
+];
 const SAMPLES = {
-  natural:'रामपुर की मरीज़ है, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है। रेफरेंस 1024।',
-  conflict:'रामपुर की मरीज़ है, रेफरेंस 2048, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है। माफ़ कीजिए, नंबर 91234 56789 है।',
+  natural:'रामपुर की मरीज़ है, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है। रेफ़रेंस 1024।',
+  conflict:'रामपुर की मरीज़ है, रेफ़रेंस 2048, नंबर 98765 43210, डिलीवरी के लिए अस्पताल ले जाना है। माफ़ कीजिए, नंबर 91234 56789 है।',
   missing:'Patient ID: DEMO-002, reason: transport coordination requested. Village aur number abhi pata nahi.'
 };
-let live = false, c = null, stage = 'start', fixField = null, busy = false, rec = null, typingRow = null, lastSide = null;
-/* Hands-free: a step that wants the mic opened sets this; it opens once the current step finishes. */
-let pendingListen = false;
+/* English glosses for the Hindi questions Timbre speaks (the server owns the Hindi wording). */
+const Q_EN = {
+  patient_ref:'Please say the patient reference number.',
+  village:'Please say the patient\'s village.',
+  contact:'Please say the contact number: 10 digits, one by one.',
+  referral_reason:'Please say the reason for the referral.'
+};
+const T = {
+  hi: {
+    lang_ack:'ठीक है, हिंदी में बात करते हैं।',
+    emer_prompt:'रेफ़रल शुरू करने के लिए आपातकाल चुनें। यह वही सूची है जो मातृ-कवच में है — प्रकार आप चुनती हैं, वाणी कोई निदान नहीं करती।',
+    emer_btn:'☰ आपातकाल चुनें', emer_title:'आपातकाल चुनें', send:'भेजें',
+    emer_ack:'✓ आपातकाल: {x}', emer_ack_note:'आपका चयन — AI निदान नहीं।',
+    other:'तुरंत डॉक्टर को कॉल करें। इस स्थिति के लिए यह डेमो रेफ़रल नहीं बनाता।',
+    details_prompt:'अब मरीज़ का विवरण — रेफ़रेंस, गाँव, संपर्क नंबर और रेफ़रल कारण। सब एक साथ बोलें, या मैं एक-एक करके पूछूँ?',
+    b_all:'🎙 एक साथ बोलें', b_guided:'❓ एक-एक करके पूछें', b_type:'✍ लिखकर / sample',
+    all_hint:'ठीक है — 🎙 दबाकर पूरा विवरण बोलिए (25 सेकंड तक), फिर ➤ दबाएँ।',
+    type_hint:'नीचे लिखिए या कोई sample चुनिए।',
+    guided_hint:'ठीक है, मैं एक-एक करके पूछती हूँ। हर जवाब से सिर्फ़ वही जानकारी भरेगी।',
+    got_all:'सारी जानकारी मिल गई। एक बार देख लीजिए:', got_some:'{n}/4 जानकारी मिली। बाकी मैं पूछ लेती हूँ:',
+    conflict_tag:'⚠ दो अलग जवाब', missing_tag:'जानकारी चाहिए', saved:'✓ {f}: {v}', kept_both:' — दोनों पुराने जवाब इतिहास में सुरक्षित हैं।',
+    rb_tag:'हर अंक अलग से', rb_caption:'Timbre read-back — ध्यान से सुनिए',
+    confirm_q:'क्या सभी विवरण सही हैं? पुष्टि के लिए कहिए: “हाँ, सब सही है”। कुछ गलत हो तो कहिए: “नहीं”।',
+    confirm_q_mock:'क्या सभी विवरण सही हैं? जांचकर पुष्टि करें।', confirm_tag:'पुष्टि',
+    yes:'✓ हाँ, सब सही है', no:'✗ नहीं, कुछ गलत है', speak_yes:'🎙 बोलकर पुष्टि',
+    mock_confirm:'Mock mode में Timbre read-back नहीं बनता, इसलिए “✓ हाँ, सब सही है” बटन दबाकर पुष्टि करें।',
+    confirmed:'संस्करण v{v} की पुष्टि हो गई', by_voice:'Confirmed by voice 🎙 — “हाँ, सब सही है”', by_tap:'Confirmed by tap',
+    send_ref:'📤 रेफ़रल भेजें (demo)', not_now:'✗ अभी नहीं, कुछ बदलना है',
+    which:'कौन सी जानकारी गलत है?', tell_right:'सही {f} बताइए{d}।', digits:' (एक-एक अंक करके)',
+    same_val:'यह वही {f} है जो पहले से दर्ज है — कोई बदलाव नहीं।', not_applied:'मैंने बदलाव सीधे नहीं किया — दोनों जवाब रखे हैं, आप चुनिए।',
+    pick_list:'कृपया नीचे से चुनें: गाँव, संपर्क नंबर, रेफ़रेंस या कारण।',
+    ref_ok:'Simulated referral created', ref_note:'कोई अस्पताल, कॉल या SMS नहीं भेजा गया।',
+    handoff_q:'मातृ-कवच demo case खोलूँ? आपातकाल: {x}। केवल यह प्रकार जाता है — मरीज़ की कोई जानकारी नहीं।',
+    b_handoff:'🔗 मातृ-कवच demo case खोलें', b_skip:'छोड़ें',
+    linked:'मातृ-कवच demo linked', linked_note:'कोई मरीज़ जानकारी नहीं भेजी गई · कोई सूचना नहीं भेजी गई',
+    done:'धन्यवाद! नया रेफ़रल शुरू करने के लिए ➕ दबाएँ।', b_new:'➕ नया रेफ़रल',
+    use_buttons:'नीचे दिए बटन से आगे बढ़ें।', reason_chip:'कारण: {x}', speak_answer:'🎙 बोलकर जवाब दें', type_answer:'✍ नीचे लिखकर जवाब दें'
+  },
+  en: {
+    lang_ack:'Okay, English it is. Vaani will still ask its questions aloud in Hindi with Timbre.',
+    emer_prompt:'Choose the emergency to start the referral. It is the same list Matri-Kavach uses. You choose the type; Vaani never diagnoses.',
+    emer_btn:'☰ Choose emergency', emer_title:'Choose emergency', send:'Send',
+    emer_ack:'✓ Emergency: {x}', emer_ack_note:'Your choice, not an AI diagnosis.',
+    other:'Call the doctor now. This demo does not create a referral for this case.',
+    details_prompt:'Now the patient details: reference, village, contact number and reason. Say it all at once, or shall I ask one by one?',
+    b_all:'🎙 Say it all at once', b_guided:'❓ Ask me one by one', b_type:'✍ Type / sample',
+    all_hint:'Okay. Tap 🎙 and say all the details (up to 25 s), then tap ➤.',
+    type_hint:'Type below or pick a sample.',
+    guided_hint:'Okay, I will ask one by one. Each answer fills only that field.',
+    got_all:'Got everything. Please check:', got_some:'Got {n} of 4. I will ask for the rest:',
+    conflict_tag:'⚠ two answers', missing_tag:'need detail', saved:'✓ {f}: {v}', kept_both:'. Both earlier values are kept in the history.',
+    rb_tag:'every digit separately', rb_caption:'Timbre read-back. Please listen carefully.',
+    confirm_q:'Are all details correct? To confirm say “हाँ, सब सही है”. If something is wrong say “नहीं”.',
+    confirm_q_mock:'Are all details correct? Please check and confirm.', confirm_tag:'confirm',
+    yes:'✓ हाँ, सब सही है', no:'✗ नहीं, something is wrong', speak_yes:'🎙 Confirm by voice',
+    mock_confirm:'Mock mode has no Timbre read-back, so tap “✓ हाँ, सब सही है” to confirm.',
+    confirmed:'Version v{v} confirmed', by_voice:'Confirmed by voice 🎙: “हाँ, सब सही है”', by_tap:'Confirmed by tap',
+    send_ref:'📤 Send referral (demo)', not_now:'✗ Not yet, change something',
+    which:'Which detail is wrong?', tell_right:'Please say the correct {f}{d}.', digits:' (digit by digit)',
+    same_val:'That is the same {f} already recorded. Nothing changed.', not_applied:'I did not change it directly. Both values are kept. Please choose.',
+    pick_list:'Please choose below: village, contact number, reference or reason.',
+    ref_ok:'Simulated referral created', ref_note:'No hospital, call or SMS was contacted.',
+    handoff_q:'Open the Matri-Kavach demo case? Emergency: {x}. Only this type is sent, no patient details.',
+    b_handoff:'🔗 Open Matri-Kavach demo case', b_skip:'Skip',
+    linked:'Matri-Kavach demo linked', linked_note:'No patient data forwarded · no notifications sent',
+    done:'Thank you! Tap ➕ to start a new referral.', b_new:'➕ New referral',
+    use_buttons:'Please use the buttons below to continue.', reason_chip:'Reason: {x}', speak_answer:'🎙 Answer by voice', type_answer:'✍ Type the answer below'
+  }
+};
+const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? '');
+let lang = 'hi';
+const t = k => T[lang][k];
+const L = k => LABEL[lang][k];
+
+let live = false, c = null, stage = 'hello', fixField = null, busy = false, rec = null, typingRow = null;
+let emergency = null;           // chosen EMERGENCIES item
+let sessionStarted = false;     // Hi + language done once; ➕ then starts at the emergency list
+let pendingListen = false;      // hands-free: open the mic once the current step finishes
 
 /* ================= utils ================= */
-const esc = t => String(t ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const now = () => new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true}).replace(' ', ' ');
 const ICON = {
   mic:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15zm6.3-3.6a.9.9 0 0 0-1.8 0 4.5 4.5 0 0 1-9 0 .9.9 0 0 0-1.8 0 6.3 6.3 0 0 0 5.4 6.2V20H8.6a.9.9 0 0 0 0 1.8h6.8a.9.9 0 0 0 0-1.8h-2.5v-2.4a6.3 6.3 0 0 0 5.4-6.2z"/></svg>',
@@ -288,8 +421,8 @@ async function api(path, method = 'GET', body) {
   const opt = {method};
   if (body instanceof FormData) opt.body = body;
   else if (body !== undefined) { opt.headers = {'Content-Type':'application/json'}; opt.body = JSON.stringify(body); }
-  const r = await fetch(path, opt), t = await r.text();
-  let j; try { j = JSON.parse(t); } catch { j = {detail: t}; }
+  const r = await fetch(path, opt), txt = await r.text();
+  let j; try { j = JSON.parse(txt); } catch { j = {detail: txt}; }
   if (!r.ok) { const e = new Error(typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail)); e.status = r.status; throw e; }
   return j;
 }
@@ -303,36 +436,46 @@ async function audioFrom(path, body) {
 let lastDir = null;
 function addRow(dir, html, opts = {}) {
   const row = document.createElement('div');
-  const fresh = lastDir !== dir;
-  row.className = 'row ' + dir + (fresh ? ' tail gap' : ' same') + (opts.err ? ' err' : '');
+  row.className = 'row ' + dir + (lastDir !== dir ? ' tail gap' : ' same') + (opts.err ? ' err' : '');
   row.innerHTML = '<div class="bubble">' + html + '</div>';
   lastDir = dir;
   $('thread').appendChild(row);
   scrollDown();
   return row;
 }
-/* Keep the newest message in view (instant, so rapid messages never leave it half-scrolled);
-   if the worker scrolled up to read history, only a NEW message pulls the view down again. */
+/* Keep the newest message in view; if the worker scrolled up, only a NEW message pulls the view down. */
 let stickToBottom = true;
-function scrollDown() {
-  const t = $('thread'); stickToBottom = true;
-  t.scrollTop = t.scrollHeight;
-  requestAnimationFrame(() => { t.scrollTop = t.scrollHeight; });
-}
-$('thread').addEventListener('scroll', () => { const t = $('thread'); stickToBottom = t.scrollHeight - t.scrollTop - t.clientHeight < 80; }, {passive: true});
-new ResizeObserver(() => { if (stickToBottom) { const t = $('thread'); t.scrollTop = t.scrollHeight; } }).observe($('thread'));
-new MutationObserver(() => { if (stickToBottom) { const t = $('thread'); t.scrollTop = t.scrollHeight; } }).observe($('thread'), {childList: true, subtree: true});
+function scrollDown() { const th = $('thread'); stickToBottom = true; th.scrollTop = th.scrollHeight; requestAnimationFrame(() => { th.scrollTop = th.scrollHeight; }); }
+$('thread').addEventListener('scroll', () => { const th = $('thread'); stickToBottom = th.scrollHeight - th.scrollTop - th.clientHeight < 80; }, {passive: true});
+new ResizeObserver(() => { if (stickToBottom) { const th = $('thread'); th.scrollTop = th.scrollHeight; } }).observe($('thread'));
+new MutationObserver(() => { if (stickToBottom) { const th = $('thread'); th.scrollTop = th.scrollHeight; } }).observe($('thread'), {childList: true, subtree: true});
+
 function meta(dir, state) { return '<span class="meta">' + now() + (dir === 'out' ? (state === 'pending' ? ICON.pending : ICON.tick) : '') + '</span>'; }
+function label(tag) { return '<div class="who-label">Vaani' + (tag ? ' <span class="tag">' + esc(tag) + '</span>' : '') + '</div>'; }
 function botText(text, opts = {}) {
   hideTyping();
-  const label = opts.label ? '<div class="who-label">Vaani' + (opts.tag ? ' <span class="tag">' + esc(opts.tag) + '</span>' : '') + '</div>' : '';
-  return addRow('in', label + '<span class="txt" lang="hi">' + esc(text) + '</span>' + (opts.extra || '') + meta('in'), opts);
+  const l = opts.label ? label(opts.tag) : '';
+  return addRow('in', l + '<span class="txt" lang="' + (opts.lang || lang) + '">' + esc(text) + '</span>' + (opts.extra || '') + meta('in'), opts);
 }
 function botHtml(html, opts = {}) { hideTyping(); return addRow('in', html + meta('in'), opts); }
 function userText(text) { return addRow('out', '<span class="txt" lang="hi">' + esc(text) + '</span>' + meta('out', 'pending')); }
 function markRead(row) { const m = row && row.querySelector('.ticks'); if (m) m.outerHTML = ICON.tick; }
-function showTyping(label) {
-  hideTyping(); setStatus(label || 'typing…', true);
+/* Bot message with reply buttons inside the bubble. Buttons lock after one is used. */
+function botButtons(text, buttons, opts = {}) {
+  const row = botText(text, Object.assign({label: true}, opts));
+  const bubble = row.querySelector('.bubble'); bubble.classList.add('has-btns');
+  const box = document.createElement('div'); box.className = 'ibtns';
+  buttons.forEach(([lab, fn]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
+    b.onclick = () => { if (busy || b.disabled) return; box.querySelectorAll('button').forEach(x => x.disabled = true); b.classList.add('picked'); fn(); };
+    box.appendChild(b);
+  });
+  bubble.appendChild(box);
+  scrollDown();
+  return row;
+}
+function showTyping(lbl) {
+  hideTyping(); setStatus(lbl || 'typing…', true);
   typingRow = document.createElement('div'); typingRow.className = 'row in typing' + (lastDir !== 'in' ? ' tail gap' : '');
   typingRow.innerHTML = '<div class="bubble"><div class="dots"><i></i><i></i><i></i></div></div>';
   $('thread').appendChild(typingRow); scrollDown();
@@ -344,7 +487,7 @@ function setStatus(text, active) {
   s.className = (active || live) ? 'live' : '';
 }
 
-/* voice note bubble (works for user recordings and Timbre replies) */
+/* voice note bubble (user recordings and Timbre replies) */
 function bars(seed, n = 34) {
   let x = seed || 7, out = '';
   for (let i = 0; i < n; i++) { x = (x * 9301 + 49297) % 233280; const h = 6 + Math.round((x / 233280) * 22 * (0.55 + 0.45 * Math.sin(i / 3.2) ** 2)); out += '<i style="height:' + h + 'px"></i>'; }
@@ -353,26 +496,25 @@ function bars(seed, n = 34) {
 function voiceNote(dir, url, opts = {}) {
   hideTyping();
   const seed = Math.floor(Math.random() * 1e5);
-  const who = dir === 'in' ? '<div class="who-label">Vaani <span class="tag">Gnani Timbre</span></div>' : '';
+  const who = dir === 'in' ? label('Gnani Timbre') : '';
   const av = dir === 'in' ? '<div class="vav bot">V<span class="mic">' + ICON.smallmic + '</span></div>' : '<div class="vav me">आप<span class="mic">' + ICON.smallmic + '</span></div>';
   const heard = opts.heard !== undefined ? '<div class="heard"><b>Prisma heard</b><span lang="hi">' + esc(opts.heard || '…') + '</span></div>' : '';
-  const html = who + '<div class="vn"><button class="play" type="button" aria-label="Play voice note">' + ICON.play + '</button><div class="bars" role="slider" aria-label="Voice note progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + bars(seed) + '</div>' + (dir === 'in' ? av : '') + (dir === 'out' ? av : '') + '</div>'
-    + '<div class="vn-foot"><span class="vn-dur">0:00</span></div>' + (opts.caption ? '<div class="txt" lang="hi" style="margin-top:4px">' + esc(opts.caption) + '</div>' : '') + heard + meta(dir, opts.pending ? 'pending' : 'done');
+  const html = who + '<div class="vn"><button class="play" type="button" aria-label="Play voice note">' + ICON.play + '</button><div class="bars" role="slider" aria-label="Voice note progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' + bars(seed) + '</div>' + av + '</div>'
+    + '<div class="vn-foot"><span class="vn-dur">0:00</span></div>' + (opts.caption ? '<div class="txt" style="margin-top:4px">' + esc(opts.caption) + '</div>' : '') + heard + meta(dir, opts.pending ? 'pending' : 'done');
   const row = addRow(dir, html);
   const audio = new Audio(url); audio.preload = 'metadata';
   const btn = row.querySelector('.play'), barsEl = row.querySelector('.bars'), dur = row.querySelector('.vn-dur'), is = [...barsEl.children];
-  const fmt = s => isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '0:00';
-  audio.addEventListener('loadedmetadata', () => { dur.textContent = fmt(audio.duration); });
-  audio.addEventListener('timeupdate', () => { const p = audio.duration ? audio.currentTime / audio.duration : 0; const on = Math.round(p * is.length); is.forEach((b, i) => b.classList.toggle('on', i < on)); dur.textContent = fmt(audio.currentTime || audio.duration); barsEl.setAttribute('aria-valuenow', Math.round(p * 100)); });
+  const mmss = s => isFinite(s) ? Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0') : '0:00';
+  audio.addEventListener('loadedmetadata', () => { dur.textContent = mmss(audio.duration); });
+  audio.addEventListener('timeupdate', () => { const p = audio.duration ? audio.currentTime / audio.duration : 0; const on = Math.round(p * is.length); is.forEach((b, i) => b.classList.toggle('on', i < on)); dur.textContent = mmss(audio.currentTime || audio.duration); barsEl.setAttribute('aria-valuenow', Math.round(p * 100)); });
   audio.addEventListener('play', () => { btn.innerHTML = ICON.pause; btn.setAttribute('aria-label', 'Pause voice note'); });
   audio.addEventListener('pause', () => { btn.innerHTML = ICON.play; btn.setAttribute('aria-label', 'Play voice note'); });
-  audio.addEventListener('ended', () => { is.forEach(b => b.classList.add('on')); dur.textContent = fmt(audio.duration); });
+  audio.addEventListener('ended', () => { is.forEach(b => b.classList.add('on')); dur.textContent = mmss(audio.duration); });
   btn.onclick = () => { document.querySelectorAll('audio').forEach(a => a !== audio && a.pause()); audio.paused ? audio.play() : audio.pause(); };
   barsEl.onclick = e => { if (!audio.duration) return; const r = barsEl.getBoundingClientRect(); audio.currentTime = audio.duration * ((e.clientX - r.left) / r.width); };
   row._audio = audio;
   return row;
 }
-/* Play a bot voice note; resolves when it ends (or immediately if autoplay is off / blocked). */
 function playAndWait(row) {
   return new Promise(resolve => {
     if (!$('autoplay').checked || !row._audio) return resolve(false);
@@ -380,37 +522,60 @@ function playAndWait(row) {
     a.play().catch(() => resolve(false));
   });
 }
-
 function stateChip(s) { return s ? '<span class="st ' + s.state + '">' + STATE_TXT[s.state] + '</span>' : ''; }
+function emerName(e) { return e ? e[lang] : ''; }
 function fieldsCard(x, title) {
   const rows = FIELDS.map(k => {
-    const v = x.fields[k], s = (x.field_states || {})[k];
-    const val = x.conflicts && x.conflicts[k] ? x.conflicts[k].map(esc).join(' <span style="color:var(--meta)">या</span> ') : (v ? esc(v) : '—');
-    return '<div class="frow"><span class="k">' + LABEL[k] + '</span><span class="v' + (v || (x.conflicts && x.conflicts[k]) ? '' : ' empty') + '" lang="hi">' + val + '<br>' + stateChip(s) + '</span></div>';
+    const v = x.fields[k], s = (x.field_states || {})[k], conf = x.conflicts && x.conflicts[k];
+    const val = conf ? conf.map(esc).join(' <span style="color:var(--meta)">' + (lang === 'hi' ? 'या' : 'or') + '</span> ') : (v ? esc(v) : '—');
+    return '<div class="frow"><span class="k">' + L(k) + '</span><span class="v' + (v || conf ? '' : ' empty') + '" lang="hi">' + val + '<br>' + stateChip(s) + '</span></div>';
   }).join('');
-  return '<div class="card"><h4><span>' + esc(title || '📋 रेफरल ड्राफ्ट') + '</span><span class="mono">v' + x.version + '</span></h4>' + rows + '</div>';
+  const em = emergency ? '<div class="frow"><span class="k">' + (lang === 'hi' ? 'आपातकाल' : 'Emergency') + '</span><span class="v">' + esc(emerName(emergency)) + '<br><span class="st needs_readback">worker-selected</span></span></div>' : '';
+  return '<div class="card"><h4><span>' + esc(title || (lang === 'hi' ? '📋 रेफ़रल ड्राफ्ट' : '📋 Referral draft')) + '</span><span class="mono">v' + x.version + '</span></h4>' + em + rows + '</div>';
 }
 
+/* ================= list sheet (Matri-Kavach style emergency list) ================= */
+let listPick = null;
+function openList() {
+  listPick = null;
+  $('ltitle').textContent = t('emer_title');
+  $('lsub').textContent = lang === 'hi' ? 'मातृ-कवच की सूची · क्लिनिकल सलाहकार: Moluvi Gufran' : 'Matri-Kavach list · clinical advisor: Moluvi Gufran';
+  $('lsend').textContent = t('send'); $('lsend').disabled = true;
+  $('litems').innerHTML = '';
+  EMERGENCIES.forEach(e => {
+    const it = document.createElement('div');
+    it.className = 'litem' + (e.noReferral ? ' disabled' : ''); it.setAttribute('role', 'radio'); it.tabIndex = 0; it.setAttribute('aria-checked', 'false');
+    it.innerHTML = '<div class="lt"><b>' + esc(e[lang]) + '</b><small class="' + (e.noReferral ? '' : 'signed') + '">' + (e.noReferral ? (lang === 'hi' ? 'यहाँ उपलब्ध नहीं: डॉक्टर को कॉल करें' : 'Not available here: call the doctor now') : (lang === 'hi' ? '✓ मातृ-कवच सूची' : '✓ Matri-Kavach list')) + '</small></div><span class="radio" aria-hidden="true"></span>';
+    const pick = () => { listPick = e; $('litems').querySelectorAll('.litem').forEach(x => { x.classList.remove('sel'); x.setAttribute('aria-checked', 'false'); }); it.classList.add('sel'); it.setAttribute('aria-checked', 'true'); $('lsend').disabled = false; };
+    it.onclick = pick; it.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } };
+    $('litems').appendChild(it);
+  });
+  $('lsend').onclick = () => { if (!listPick) return; const e = listPick; closeList(); chooseEmergency(e); };
+  $('lscrim').classList.add('open'); $('lsheet').classList.add('open');
+}
+function closeList() { $('lscrim').classList.remove('open'); $('lsheet').classList.remove('open'); }
+
 /* ================= side panel ================= */
-const STEP_NAMES = ['Speak','Clarify','Read back','Confirm','Submit','Handoff'];
+const STEP_NAMES = ['Emergency','Details','Clarify','Read back','Confirm','Send','Handoff'];
 function stepIndex(x) {
-  if (!x) return 0;
+  if (!emergency) return 0;
+  if (!x) return 1;
   const ev = (x.events || []).map(e => e.event);
-  if (ev.includes('matri_demo_handoff_created')) return 6;
-  if (x.submitted) return 5;
-  if (x.confirmed) return 4;
-  if (x.readback_ready) return 3;
-  if (!x.clarification) return 2;
-  return 1;
+  if (ev.includes('matri_demo_handoff_created')) return 7;
+  if (x.submitted) return 6;
+  if (x.confirmed) return 5;
+  if (x.readback_ready) return 4;
+  if (!x.clarification) return 3;
+  return 2;
 }
 function renderSide(x) {
-  lastSide = x;
   const si = stepIndex(x);
   $('steps').innerHTML = STEP_NAMES.map((n, i) => '<div class="' + (i < si ? 'done' : i === si ? 'now' : '') + '"><i></i>' + n + '</div>').join('');
-  if (!x) { $('caseSub').textContent = 'No referral yet — speak or pick a sample.'; return; }
+  if (emergency) { $('emerBox').className = ''; $('emerBox').innerHTML = '<span class="emer-chip">' + esc(emergency.en) + '</span><br><small style="color:var(--meta)" lang="hi">' + esc(emergency.hi) + ' · worker-selected, not an AI diagnosis</small>'; }
+  if (!x) { $('caseSub').textContent = emergency ? 'Emergency chosen. Waiting for the patient details.' : 'No referral yet. Say Hi to start.'; return; }
   $('caseSub').innerHTML = 'Case <b class="mono">' + esc(x.id.slice(0, 8).toUpperCase()) + '</b> · draft v' + x.version + (x.referral_id ? ' · <b>' + esc(x.referral_id) + '</b>' : '');
   $('fieldsBox').className = '';
-  $('fieldsBox').innerHTML = FIELDS.map(k => { const s = (x.field_states || {})[k] || {}; return '<div class="kv"><span>' + LABEL_EN[k] + '<br><small style="color:var(--meta)">' + esc(s.source || '') + (s.resolved_conflict ? ' · conflict resolved' : '') + '</small></span><span lang="hi">' + (x.fields[k] ? esc(x.fields[k]) : '—') + '<br>' + stateChip(s) + '</span></div>'; }).join('');
+  $('fieldsBox').innerHTML = FIELDS.map(k => { const s = (x.field_states || {})[k] || {}; return '<div class="kv"><span>' + LABEL.en[k] + '<br><small style="color:var(--meta)">' + esc(s.source || '') + (s.resolved_conflict ? ' · conflict resolved' : '') + '</small></span><span lang="hi">' + (x.fields[k] ? esc(x.fields[k]) : '—') + '<br>' + stateChip(s) + '</span></div>'; }).join('');
   const e = x.evidence || {}, yn = (b, y, n) => '<span class="' + (b ? 'ok' : 'no') + '">' + (b ? y : n) + '</span>';
   const rows = [
     ['Fields verified', yn(e.fields_complete === e.fields_total, e.fields_complete + ' / ' + e.fields_total, e.fields_complete + ' / ' + e.fields_total)],
@@ -429,18 +594,72 @@ function openSheet(open) { $('side').classList.toggle('open', open); $('scrim').
 /* ================= chips ================= */
 function chips(list) {
   $('chips').innerHTML = '';
-  list.forEach(([label, fn, cls]) => {
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (cls ? ' ' + cls : ''); b.textContent = label; b.lang = 'hi';
+  list.forEach(([lab, fn, cls]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip' + (cls ? ' ' + cls : ''); b.textContent = lab; b.lang = 'hi';
     b.onclick = () => { if (!busy) fn(); }; $('chips').appendChild(b);
   });
 }
-function startChips() {
-  chips([
-    ...(live ? [['🎙 बोलकर रेफरल भेजें', () => startRecording(), 'primary']] : []),
+function sampleChips(extra = []) {
+  chips([...extra,
     ['Sample: सामान्य बातचीत', () => sendText(SAMPLES.natural)],
     ['Sample: दो अलग नंबर', () => sendText(SAMPLES.conflict)],
-    ['Sample: अधूरी जानकारी', () => sendText(SAMPLES.missing)]
-  ]);
+    ['Sample: अधूरी जानकारी', () => sendText(SAMPLES.missing)]]);
+}
+
+/* ================= conversation: opening (Hi → language → emergency → details) ================= */
+function hello() {
+  stage = 'hello';
+  $('thread').insertAdjacentHTML('beforeend', '<div class="sys" lang="hi">👋 Vaani से बात शुरू करने के लिए <b>Hi</b> भेजें · Say <b>Hi</b> to start.</div>');
+  chips([['Hi', () => sendText('Hi'), 'primary'], ['नमस्ते', () => sendText('नमस्ते')]]);
+}
+function greet() {
+  stage = 'lang'; sessionStarted = true;
+  botButtons('नमस्ते! 🙏 यह मातृ-कवच वाणी है: आवाज़ से सत्यापित रेफ़रल सहायता (Gnani Prisma + Timbre)। भाषा चुनें / Choose language.',
+    [['English', () => guarded(() => chooseLang('en'))], ['हिंदी (Hindi)', () => guarded(() => chooseLang('hi'))]], {lang: 'hi'});
+  chips([['हिंदी', () => sendText('हिंदी')], ['English', () => sendText('English')]]);
+}
+async function chooseLang(l) {
+  if (stage !== 'lang') return;
+  lang = l; try { localStorage.setItem('vaani_lang', l); } catch (e) {}
+  userText(l === 'hi' ? 'हिंदी' : 'English');
+  botText(t('lang_ack'));
+  askEmergency();
+}
+function askEmergency() {
+  stage = 'emergency';
+  botButtons(t('emer_prompt'), [[t('emer_btn'), openList]]);
+  // Re-enable the list button if the sheet is closed without sending.
+  const b = $('thread').lastElementChild.querySelector('.ibtns button');
+  b.onclick = () => { if (!busy && stage === 'emergency') openList(); };
+  chips([[t('emer_btn'), () => openList(), 'primary']]);
+}
+function chooseEmergency(e) {
+  if (stage !== 'emergency') return;
+  userText(e[lang]);
+  if (e.noReferral) { botText('📞 ' + t('other'), {label: true}); return askEmergency(); }
+  emergency = e; renderSide(null);
+  botText(fmt(t('emer_ack'), {x: e[lang]}), {extra: '<span class="small-note">' + esc(t('emer_ack_note')) + (lang === 'hi' ? ' · क्लिनिकल सलाहकार: Moluvi Gufran' : ' · clinical advisor: Moluvi Gufran') + '</span>'});
+  askDetails();
+}
+function askDetails() {
+  stage = 'details';
+  const buttons = [];
+  if (live) buttons.push([t('b_all'), () => { botText(t('all_hint')); detailsChips(); listenNext(); }]);
+  buttons.push([t('b_guided'), () => guarded(startGuided)]);
+  buttons.push([t('b_type'), () => { botText(t('type_hint')); detailsChips(); }]);
+  botButtons(t('details_prompt'), buttons);
+  detailsChips();
+}
+function detailsChips() { sampleChips(live ? [[t('b_all'), () => startRecording(), 'primary'], [t('b_guided'), () => guarded(startGuided)]] : [[t('b_guided'), () => guarded(startGuided), 'primary']]); }
+async function startGuided() {
+  if (stage !== 'details') return;
+  userText(t('b_guided'));
+  botText(t('guided_hint'));
+  showTyping();
+  // A draft with no spoken details yet: the clarification loop then asks each field in turn.
+  const x = await api('/api/cases/from-transcript', 'POST', {transcript: 'Guided referral · ' + emergency.en});
+  c = x; renderSide(x);
+  await afterDraft(x, false);
 }
 
 /* ================= conversation engine ================= */
@@ -448,26 +667,35 @@ async function guarded(fn) {
   if (busy) return; busy = true; pendingListen = false; setFab();
   try { await fn(); }
   catch (e) { pendingListen = false; botText('⚠ ' + e.message, {err: true}); }
-  finally {
-    busy = false; hideTyping(); setFab();
-    if (pendingListen) { pendingListen = false; startRecording(true); }
-  }
+  finally { busy = false; hideTyping(); setFab(); if (pendingListen) { pendingListen = false; startRecording(true); } }
 }
-function routeLabel() {
-  if (stage === 'clarify' && c && c.clarification) return c.clarification.field;
-  return null;
+function matchEmergency(text) {
+  const n = parseInt(text, 10);
+  if (n >= 1 && n <= EMERGENCIES.length) return EMERGENCIES[n - 1];
+  const s = text.toLowerCase();
+  return EMERGENCIES.find(e => s && (e.en.toLowerCase().includes(s) || e.hi.includes(text) || s.includes(e.id))) || null;
 }
 /* Everything the worker sends (typed or spoken) goes through here. */
-async function handleInput({text, wav, file, seconds}) {
+async function handleInput({text, wav, file}) {
   const spoken = !!(wav || file);
-  let row = null;
-  if (spoken) row = voiceNote('out', URL.createObjectURL(wav || file), {heard: '', pending: true});
-  else row = userText(text);
+  // Opening steps are buttons/typing only; voice there is acknowledged but not sent to Prisma.
+  if (stage === 'hello') { userText(text || '🎙'); markRead($('thread').lastElementChild); return greet(); }
+  if (stage === 'lang') {
+    const s = (text || '').toLowerCase();
+    if (/english|eng/.test(s)) return chooseLang('en');
+    if (/हिंदी|hindi|हिन्दी/.test(s)) return chooseLang('hi');
+    userText(text || '🎙'); return botText('भाषा चुनें / Choose language: English · हिंदी');
+  }
+  if (stage === 'emergency') {
+    if (!spoken) { const e = matchEmergency(text); if (e) return chooseEmergency(e); userText(text); }
+    botText(t('emer_prompt')); return openList();
+  }
+  let row = spoken ? voiceNote('out', URL.createObjectURL(wav || file), {heard: '', pending: true}) : userText(text);
   const fd = new FormData();
   if (wav) fd.append('file', wav, 'voice.wav'); else if (file) fd.append('file', file, file.name || 'voice.wav'); else fd.append('answer_text', text);
-  const setHeard = h => { if (row) { const el = row.querySelector('.heard span'); if (el) el.textContent = h; } };
+  const setHeard = h => { const el = row && row.querySelector('.heard span'); if (el) el.textContent = h; };
   try {
-    if (stage === 'start' || !c) {
+    if (stage === 'details' || !c) {
       showTyping(spoken ? 'listening…' : 'typing…');
       let x;
       if (spoken) { const f = new FormData(); f.append('file', wav || file, (file && file.name) || 'referral.wav'); x = await api('/api/cases/from-audio', 'POST', f); setHeard(x.transcript); }
@@ -479,13 +707,13 @@ async function handleInput({text, wav, file, seconds}) {
       fd.append('field', q.field); fd.append('expected_version', String(c.version));
       const x = await api('/api/cases/' + c.id + '/clarify', 'POST', fd);
       setHeard(x.clarified.heard); markRead(row); c = x; renderSide(x);
-      botText('✓ ' + LABEL[x.clarified.field] + ': ' + x.clarified.value + (x.clarified.resolved_conflict ? ' — दोनों पुराने जवाब इतिहास में सुरक्षित हैं।' : ''));
+      botText(fmt(t('saved'), {f: L(x.clarified.field), v: x.clarified.value}) + (x.clarified.resolved_conflict ? t('kept_both') : ''));
       await afterDraft(x, false);
     } else if (stage === 'confirm') {
       if (!(c.evidence && c.evidence.audio_readback_current_version)) {
         markRead(row);
         if (/नहीं|nahi|गलत|galat|wrong|\bno\b/i.test(text || '')) return askWhatToFix();
-        botText('Mock mode में Timbre read-back नहीं बनता, इसलिए नीचे “✓ हाँ, सब सही है” बटन दबाकर पुष्टि करें।'); return confirmChips();
+        botText(t('mock_confirm')); return confirmChips();
       }
       showTyping(spoken ? 'listening…' : 'typing…');
       fd.append('expected_version', String(c.version));
@@ -498,32 +726,25 @@ async function handleInput({text, wav, file, seconds}) {
       fd.append('field', fixField); fd.append('expected_version', String(c.version));
       const x = await api('/api/cases/' + c.id + '/correct', 'POST', fd);
       setHeard(x.correction.heard); markRead(row); c = x; renderSide(x);
-      if (x.correction.matches_existing) { botText('यह वही ' + LABEL[fixField] + ' है जो पहले से दर्ज है — कोई बदलाव नहीं।'); return readbackStage(); }
-      botText('मैंने बदलाव सीधे नहीं किया — दोनों जवाब रखे हैं, आप चुनिए।');
+      if (x.correction.matches_existing) { botText(fmt(t('same_val'), {f: L(fixField)})); return readbackStage(); }
+      botText(t('not_applied'));
       return afterDraft(x, false);
     } else if (stage === 'pickfix' && !spoken) {
       markRead(row);
-      const t = text.toLowerCase();
-      const k = /गाँव|गांव|village|gaon/.test(t) ? 'village' : /नंबर|नम्बर|number|contact|फोन|phone|मोबाइल/.test(t) ? 'contact'
-        : /रेफरेंस|reference|\bid\b|आईडी/.test(t) ? 'patient_ref' : /कारण|reason|वजह/.test(t) ? 'referral_reason' : null;
-      if (!k) { botText('कृपया नीचे से चुनें: गाँव, संपर्क नंबर, रेफरेंस या कारण।'); return; }
-      fixField = k; stage = 'fix';
-      botText('सही ' + LABEL[k] + ' बताइए' + (k === 'contact' ? ' (एक-एक अंक करके)' : '') + '।', {label: true});
-      chips(live ? [['🎙 बोलकर बताइए', () => startRecording(), 'primary']] : [['✍ नीचे लिखिए', () => $('msg').focus()]]);
-      if (live && $('handsfree').checked) listenNext();
+      const s = text.toLowerCase();
+      const k = /गाँव|गांव|village|gaon/.test(s) ? 'village' : /नंबर|नम्बर|number|contact|फोन|phone|मोबाइल/.test(s) ? 'contact'
+        : /रेफ़?रेंस|reference|\bid\b|आईडी/.test(s) ? 'patient_ref' : /कारण|reason|वजह/.test(s) ? 'referral_reason' : null;
+      if (!k) { botText(t('pick_list')); return; }
+      return chooseFix(k, true);
     } else {
-      markRead(row);
-      botText('नीचे दिए बटन से आगे बढ़ें, या ➕ से नया रेफरल शुरू करें।');
+      markRead(row); botText(t('use_buttons'));
     }
-  } catch (e) {
-    setHeard('—'); markRead(row);
-    throw e;
-  }
+  } catch (e) { setHeard('—'); markRead(row); throw e; }
 }
 async function afterDraft(x, first) {
   if (first) {
     const n = FIELDS.filter(k => x.fields[k]).length;
-    botHtml('<div class="who-label">Vaani</div><span class="txt" lang="hi">' + (n === 4 && !x.clarification ? 'सारी जानकारी मिल गई। एक बार देख लीजिए:' : n + '/4 जानकारी मिली। बाकी मैं पूछ लेती हूँ:') + '</span>' + fieldsCard(x));
+    botHtml(label() + '<span class="txt">' + esc(n === 4 && !x.clarification ? t('got_all') : fmt(t('got_some'), {n})) + '</span>' + fieldsCard(x));
   }
   if (x.clarification) return ask(x.clarification);
   return readbackStage();
@@ -531,13 +752,19 @@ async function afterDraft(x, first) {
 async function ask(q) {
   stage = 'clarify';
   const conflict = q.kind === 'conflict';
-  botText(q.question, {label: true, tag: conflict ? '⚠ दो अलग जवाब' : 'जानकारी चाहिए'});
+  if (lang === 'en') {
+    const en = conflict ? 'Two different answers for ' + L(q.field).toLowerCase() + ': first ' + q.candidates[0] + ', second ' + q.candidates[1] + '. Which one is right?' : Q_EN[q.field];
+    botText(en, {label: true, tag: conflict ? t('conflict_tag') : t('missing_tag'), extra: '<span class="small-note" lang="hi">🔊 ' + esc(q.question) + '</span>'});
+  } else {
+    botText(q.question, {label: true, tag: conflict ? t('conflict_tag') : t('missing_tag')});
+  }
   const list = conflict ? q.candidates.map((v, i) => [(i ? 'दूसरा' : 'पहला') + ': ' + v, () => sendText(v)]) : [];
-  if (live) list.push(['🎙 बोलकर जवाब दें', () => startRecording(), 'primary']);
-  chips(list.length ? list : [['✍ नीचे लिखकर जवाब दें', () => $('msg').focus()]]);
+  if (!conflict && q.field === 'referral_reason' && emergency) list.push([fmt(t('reason_chip'), {x: emergency.hi}), () => sendText(emergency.hi)]);
+  if (live) list.unshift([t('speak_answer'), () => startRecording(), 'primary']);
+  chips(list.length ? list : [[t('type_answer'), () => $('msg').focus()]]);
   if (live) await speak('/api/cases/' + c.id + '/clarification/audio', {expected_version: c.version, field: q.field});
 }
-/* Timbre voice note -> auto-play -> (hands-free) start listening */
+/* Timbre voice note → auto-play → (hands-free) start listening */
 async function speak(path, body, caption) {
   showTyping('recording voice note…');
   let url;
@@ -545,20 +772,19 @@ async function speak(path, body, caption) {
   catch (e) { hideTyping(); botText('⚠ Timbre: ' + e.message, {err: true}); return; }
   const row = voiceNote('in', url, {caption});
   const played = await playAndWait(row);
-  if (played && $('handsfree').checked && !busyRecordingBlocked()) listenNext();
+  if (played && $('handsfree').checked && !rec && ['clarify', 'confirm', 'fix', 'details'].includes(stage)) listenNext();
 }
-function listenNext() { if (busy) pendingListen = true; else startRecording(true); }
-function busyRecordingBlocked() { return !!rec || stage === 'start' || stage === 'submit' || stage === 'handoff' || stage === 'done'; }
+function listenNext() { if (!live) return; if (busy) pendingListen = true; else startRecording(true); }
 async function readbackStage() {
   stage = 'readback';
   showTyping();
   const r = await api('/api/cases/' + c.id + '/readback', 'POST');
-  botText('📢 Read-back:\n' + r.text.replace(' कृपया सभी विवरण ध्यान से जांचें। यह केवल परीक्षण है।', ''), {label: true, tag: 'हर अंक अलग से'});
+  botText('📢 Read-back:\n' + r.text.replace(' कृपया सभी विवरण ध्यान से जांचें। यह केवल परीक्षण है।', ''), {label: true, tag: t('rb_tag'), lang: 'hi'});
   if (live) {
     showTyping('recording voice note…');
     try {
       const url = await audioFrom('/api/cases/' + c.id + '/readback/audio', {expected_version: c.version});
-      const row = voiceNote('in', url, {caption: 'Timbre read-back — ध्यान से सुनिए'});
+      const row = voiceNote('in', url, {caption: t('rb_caption')});
       c = await api('/api/cases/' + c.id); renderSide(c);
       await playAndWait(row);
     } catch (e) { botText('⚠ Timbre: ' + e.message, {err: true}); }
@@ -566,121 +792,130 @@ async function readbackStage() {
   c = await api('/api/cases/' + c.id); renderSide(c);
   stage = 'confirm';
   if (live && c.evidence && c.evidence.audio_readback_current_version) {
-    botText('क्या सभी विवरण सही हैं? पुष्टि के लिए कहिए: “हाँ, सब सही है”। कुछ गलत हो तो कहिए: “नहीं”।', {label: true, tag: 'पुष्टि'});
+    botText(t('confirm_q'), {label: true, tag: t('confirm_tag')});
     confirmChips();
     await speak('/api/cases/' + c.id + '/confirm/question-audio', {expected_version: c.version});
   } else {
-    botText('क्या सभी विवरण सही हैं? जांचकर पुष्टि करें।', {label: true, tag: 'पुष्टि'});
+    botText(t('confirm_q_mock'), {label: true, tag: t('confirm_tag')});
     confirmChips();
   }
 }
 function confirmChips() {
   const voice = live && c.evidence && c.evidence.audio_readback_current_version;
   chips([
-    ['✓ हाँ, सब सही है', () => voice ? sendText('हाँ, सब सही है') : guarded(tapConfirm), 'primary'],
-    ['✗ नहीं, कुछ गलत है', () => guarded(async () => { userText('नहीं, कुछ गलत है'); await askWhatToFix(); }), 'danger'],
-    ...(voice ? [['🎙 बोलकर पुष्टि', () => startRecording()]] : [])
+    [t('yes'), () => voice ? sendText('हाँ, सब सही है') : guarded(tapConfirm), 'primary'],
+    [t('no'), () => guarded(async () => { userText(t('no')); await askWhatToFix(); }), 'danger'],
+    ...(voice ? [[t('speak_yes'), () => startRecording()]] : [])
   ]);
 }
 async function tapConfirm() {
-  const row = userText('✓ हाँ, सब सही है');
+  const row = userText(t('yes'));
   showTyping();
   const x = await api('/api/cases/' + c.id + '/confirm', 'POST', {expected_version: c.version, acknowledged: true});
   markRead(row); c = x; renderSide(x); confirmed(false);
 }
 function confirmed(byVoice) {
   stage = 'submit';
-  botHtml('<div class="ok-card"><div class="big">✓</div><div><b lang="hi">संस्करण v' + c.version + ' की पुष्टि हो गई</b><br><span style="color:var(--meta);font-size:12.5px">' + (byVoice ? 'Confirmed by voice 🎙 — “हाँ, सब सही है”' : 'Confirmed by tap') + '</span></div></div>');
-  chips([['📤 रेफरल भेजें (demo)', () => guarded(submitReferral), 'primary'], ['✗ अभी नहीं, कुछ बदलना है', () => guarded(askWhatToFix), 'danger']]);
+  botHtml('<div class="ok-card"><div class="big">✓</div><div><b>' + esc(fmt(t('confirmed'), {v: c.version})) + '</b><br><span style="color:var(--meta);font-size:12.5px">' + esc(byVoice ? t('by_voice') : t('by_tap')) + '</span></div></div>');
+  chips([[t('send_ref'), () => guarded(submitReferral), 'primary'], [t('not_now'), () => guarded(askWhatToFix), 'danger']]);
 }
 async function askWhatToFix() {
   stage = 'pickfix';
-  botText('कौन सी जानकारी गलत है?', {label: true});
-  chips(FIELDS.map(k => [LABEL[k], () => guarded(() => chooseFix(k))]));
+  botButtons(t('which'), FIELDS.map(k => [L(k), () => guarded(() => chooseFix(k))]));
+  chips(FIELDS.map(k => [L(k), () => guarded(() => chooseFix(k))]));
 }
-async function chooseFix(k) {
-  userText(LABEL[k]);
+async function chooseFix(k, typed) {
+  if (!typed) userText(L(k));
   fixField = k; stage = 'fix';
-  botText('सही ' + LABEL[k] + ' बताइए' + (k === 'contact' ? ' (एक-एक अंक करके)' : '') + '।', {label: true});
-  chips(live ? [['🎙 बोलकर बताइए', () => startRecording(), 'primary']] : [['✍ नीचे लिखिए', () => $('msg').focus()]]);
-  if (live && $('handsfree').checked) listenNext();
+  botText(fmt(t('tell_right'), {f: L(k), d: k === 'contact' ? t('digits') : ''}), {label: true});
+  chips(live ? [[t('speak_answer'), () => startRecording(), 'primary']] : [[t('type_answer'), () => $('msg').focus()]]);
+  if ($('handsfree').checked) listenNext();
 }
 async function submitReferral() {
-  const row = userText('📤 रेफरल भेजें (demo)');
+  const row = userText(t('send_ref'));
   showTyping();
   const x = await api('/api/cases/' + c.id + '/submit', 'POST', {expected_version: c.version, idempotency_key: 'chat-' + c.id + '-v' + c.version});
   markRead(row); c = x; renderSide(x);
-  botHtml('<div class="ok-card"><div class="big">📨</div><div><b>Simulated referral created</b><br><span class="mono">' + esc(x.referral_id) + '</span><br><span style="color:var(--meta);font-size:12.5px">No hospital, call or SMS was contacted.</span></div></div>' + fieldsCard(x, '🧾 Approved referral'));
+  botHtml('<div class="ok-card"><div class="big">📨</div><div><b>' + esc(t('ref_ok')) + '</b><br><span class="mono">' + esc(x.referral_id) + '</span><br><span style="color:var(--meta);font-size:12.5px">' + esc(t('ref_note')) + '</span></div></div>' + fieldsCard(x, '🧾 Approved referral'));
   stage = 'handoff';
-  botText('Isolated Matri-Kavach demo case खोलने के लिए परिदृश्य (synthetic) चुनें — यह AI निदान नहीं है, और कोई मरीज़ जानकारी नहीं भेजी जाती।', {label: true});
-  chips([...SCENARIOS.map(([id, t]) => [t, () => guarded(() => handoff(id, t))]), ['छोड़ें', () => done()]]);
+  botButtons(fmt(t('handoff_q'), {x: emerName(emergency)}), [[t('b_handoff'), () => guarded(handoff)], [t('b_skip'), () => done()]]);
+  chips([[t('b_handoff'), () => guarded(handoff), 'primary'], [t('b_skip'), () => done()]]);
 }
-async function handoff(id, t) {
-  const row = userText('परिदृश्य: ' + t);
+async function handoff() {
+  if (stage !== 'handoff') return;
+  const row = userText(t('b_handoff'));
   showTyping();
-  const r = await api('/api/cases/' + c.id + '/handoff/demo', 'POST', {expected_version: c.version, scenario: id, acknowledged_synthetic_only: true});
+  const r = await api('/api/cases/' + c.id + '/handoff/demo', 'POST', {expected_version: c.version, scenario: emergency.id, acknowledged_synthetic_only: true});
   markRead(row); c = await api('/api/cases/' + c.id); renderSide(c);
-  botHtml('<div class="ok-card"><div class="big">🔗</div><div><b>Matri-Kavach demo linked</b><br><span class="mono">' + esc(r.backend_ref) + '</span> · step ' + esc(r.backend_step) + '<br><span style="color:var(--meta);font-size:12.5px">No patient data forwarded · no notifications sent</span></div></div>');
+  botHtml('<div class="ok-card"><div class="big">🔗</div><div><b>' + esc(t('linked')) + '</b><br><span class="mono">' + esc(r.backend_ref) + '</span> · step ' + esc(r.backend_step) + '<br><span style="color:var(--meta);font-size:12.5px">' + esc(emerName(emergency)) + ' · ' + esc(t('linked_note')) + '</span></div></div>');
   done();
 }
-function done() { stage = 'done'; botText('धन्यवाद! नया रेफरल शुरू करने के लिए ➕ दबाएँ।'); chips([['➕ नया रेफरल', () => newReferral(), 'primary']]); }
+function done() { stage = 'done'; botText(t('done')); chips([[t('b_new'), () => newReferral(), 'primary']]); }
 
 /* ================= input: text, files, recording ================= */
 function sendText(text) { if (!text || busy) return; guarded(() => handleInput({text})); }
-function sendTyped() { const t = $('msg').value.trim(); if (!t) return; $('msg').value = ''; setFab(); sendText(t); }
+function sendTyped() { const v = $('msg').value.trim(); if (!v) return; $('msg').value = ''; setFab(); sendText(v); }
 $('msg').addEventListener('input', setFab);
-$('file').addEventListener('change', () => { const f = $('file').files[0]; $('file').value = ''; if (!f) return; if (!live) return botText('Audio files need live mode (GNANI_MODE=live + key). Mock mode: type or use a sample.', {err: true}); if (f.size > 10 * 1024 * 1024) return botText('⚠ Audio must be 10 MB or smaller.', {err: true}); guarded(() => handleInput({file: f})); });
+$('file').addEventListener('change', () => {
+  const f = $('file').files[0]; $('file').value = ''; if (!f) return;
+  if (!live) return botText('Audio files need live mode (GNANI_MODE=live + key). Mock mode: type or use a sample.', {err: true});
+  if (!['details', 'clarify', 'confirm', 'fix'].includes(stage)) return botText(t('use_buttons'));
+  if (f.size > 10 * 1024 * 1024) return botText('⚠ Audio must be 10 MB or smaller.', {err: true});
+  guarded(() => handleInput({file: f}));
+});
 function setFab() {
   const fab = $('fab'), hasText = $('msg').value.trim().length > 0;
   if (rec) { fab.innerHTML = ICON.send; fab.setAttribute('aria-label', 'Stop and send voice message'); fab.disabled = false; return; }
-  fab.innerHTML = hasText || !live ? ICON.send : ICON.mic;
-  fab.setAttribute('aria-label', hasText || !live ? 'Send message' : 'Record voice message');
-  fab.disabled = busy || (!live && !hasText);
+  const micOk = live && ['details', 'clarify', 'confirm', 'fix'].includes(stage);
+  fab.innerHTML = hasText || !micOk ? ICON.send : ICON.mic;
+  fab.setAttribute('aria-label', hasText || !micOk ? 'Send message' : 'Record voice message');
+  fab.disabled = busy || (!micOk && !hasText);
 }
-function fabAction() {
-  if (rec) return rec.stop();
-  if ($('msg').value.trim() || !live) return sendTyped();
-  startRecording();
-}
+function fabAction() { if (rec) return rec.stop(); if ($('msg').value.trim() || !live) return sendTyped(); startRecording(); }
 async function startRecording(auto) {
-  if (rec || busy || !live) return;
+  if (rec || busy || !live || !['details', 'clarify', 'confirm', 'fix'].includes(stage)) return;
   const wave = $('recwave'); wave.innerHTML = '';
   try {
     rec = await VaaniVoice.start({
       maxSeconds: 25,
-      onTick: s => { $('rectime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); if (s >= 20) $('rechint').textContent = (25 - s) + 's बाकी'; },
+      onTick: s => { $('rectime').textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); if (s >= 20) $('rechint').textContent = (25 - s) + 's'; },
       onLevel: l => { const i = document.createElement('i'); i.style.height = Math.max(3, Math.round(l * 26)) + 'px'; wave.appendChild(i); if (wave.children.length > 60) wave.firstChild.remove(); }
     });
-  } catch (e) { botText('⚠ ' + e.message + (auto ? ' — आप 🎙 दबाकर या लिखकर जवाब दे सकते हैं।' : ''), {err: true}); rec = null; return setFab(); }
-  $('rectime').textContent = '0:00'; $('rechint').textContent = auto ? 'सुन रही हूँ… बोलिए, फिर ➤ दबाएँ' : 'बोलिए… फिर ➤ दबाएँ';
+  } catch (e) { botText('⚠ ' + e.message + (auto ? (lang === 'hi' ? ' — आप 🎙 दबाकर या लिखकर जवाब दे सकते हैं।' : ' You can tap 🎙 or type instead.') : ''), {err: true}); rec = null; return setFab(); }
+  $('rectime').textContent = '0:00'; $('rechint').textContent = lang === 'hi' ? (auto ? 'सुन रही हूँ… बोलिए, फिर ➤' : 'बोलिए… फिर ➤') : (auto ? 'Listening… speak, then ➤' : 'Speak… then ➤');
   $('composer').classList.add('recording'); setStatus('listening… 🎙', true); setFab();
-  const current = rec;
-  current.result.then(({wav, seconds}) => { endRecUI(); guarded(() => handleInput({wav, seconds})); })
+  rec.result.then(({wav}) => { endRecUI(); guarded(() => handleInput({wav})); })
     .catch(e => { endRecUI(); if (e.message !== 'cancelled') botText('⚠ ' + e.message, {err: true}); });
 }
 function endRecUI() { rec = null; $('composer').classList.remove('recording'); setStatus(); setFab(); }
 function cancelRecording() { if (rec) rec.cancel(); }
 
 /* ================= lifecycle ================= */
+function resetThread() {
+  lastDir = null;
+  $('thread').innerHTML = '<div class="day"><span>आज · Today</span></div><div class="sys">🔒 Synthetic demo. Use fictional names and numbers only. ' + (live ? 'Your voice goes to Gnani Prisma, and Vaani replies with Gnani Timbre.' : 'Mock mode: type or tap a sample (no Gnani audio).') + '</div>';
+  $('fieldsBox').className = 'empty'; $('fieldsBox').textContent = 'Fields appear after the patient details.';
+  $('passportBox').className = 'empty'; $('passportBox').textContent = 'What was heard, changed and approved. No patient values.';
+  $('emerBox').className = 'empty'; $('emerBox').textContent = 'Not chosen yet. The worker picks it from the Matri-Kavach list. Vaani never diagnoses.';
+}
+/* ➕ New referral: same flow, but skip Hi + language once they are known. */
 function newReferral() {
   if (rec) rec.cancel();
   document.querySelectorAll('audio').forEach(a => a.pause());
-  c = null; stage = 'start'; fixField = null; lastDir = null;
-  $('thread').innerHTML = '<div class="day"><span>आज · Today</span></div><div class="sys">🔒 Synthetic demo. Use fictional names and numbers only. ' + (live ? 'Your voice goes to Gnani Prisma; Vaani replies with Gnani Timbre.' : 'Mock mode: type or tap a sample (no Gnani audio).') + '</div>';
-  renderSide(null);
-  ['fieldsBox', 'passportBox'].forEach(id => { $(id).className = 'empty'; });
-  $('fieldsBox').textContent = 'Fields appear after the first message.';
-  $('passportBox').textContent = 'What was heard, changed and approved — no patient values.';
-  botText('नमस्ते! 🙏 मैं वाणी हूँ। मरीज़ का रेफरल बोलकर या लिखकर भेजिए — गाँव, संपर्क नंबर, रेफरेंस और रेफरल का कारण। जो छूट जाएगा, मैं पूछ लूँगी।', {label: true});
-  startChips(); setFab(); openSheet(false);
+  closeList(); openSheet(false);
+  c = null; emergency = null; fixField = null; stage = 'hello';
+  resetThread(); renderSide(null);
+  if (sessionStarted) { botText(lang === 'hi' ? 'नया रेफ़रल।' : 'New referral.', {label: true}); askEmergency(); }
+  else hello();
+  setFab();
 }
 function toggleTheme() {
   const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
   r.dataset.theme = dark ? 'light' : 'dark';
   try { localStorage.setItem('vaani_theme', r.dataset.theme); } catch (e) {}
 }
-try { const t = localStorage.getItem('vaani_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (rec) cancelRecording(); openSheet(false); } });
+try { const th = localStorage.getItem('vaani_theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (rec) cancelRecording(); closeList(); openSheet(false); } });
 api('/api/config').then(x => { live = !!x.timbre_live; }).catch(() => {}).finally(() => { setStatus(); newReferral(); });
 </script>
 </body>

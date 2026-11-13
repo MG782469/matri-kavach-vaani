@@ -26,7 +26,7 @@
 
 ## 2. 60-second demo (also enters "Demo Day Drop")
 
-**Record in the chat view (`localhost:8000/chat`).** It looks like the messaging app health workers already use. Keep the browser around 1100 px wide so the case panel and Evidence Passport sit next to the chat. Hands-free is on by default: after Vaani speaks, the mic opens by itself. Use 🎙 and ➤ to start and send a voice note.
+**Record in the chat view (`localhost:8000/chat`).** It follows the Matri-Kavach conversation: **Hi → हिंदी → ☰ आपातकाल चुनें** (pick "प्रसव के बाद भारी रक्तस्राव") **→ भेजें → 🎙 एक साथ बोलें** (or "❓ एक-एक करके पूछें" to show Vaani asking each field). It looks like the messaging app health workers already use. Keep the browser around 1100 px wide so the case panel and Evidence Passport sit next to the chat. Hands-free is on by default: after Vaani speaks, the mic opens by itself. Use 🎙 and ➤ to start and send a voice note.
 - Conflict step: when Vaani asks with a voice note, answer **"हाँ"** first (show that it is rejected), then **"दूसरा"**.
 - Confirmation step: say **"हाँ, सब सही है"**.
 - Finish by tapping **📤 रेफरल भेजें**, then a synthetic scenario chip, so the handoff card appears.
@@ -85,7 +85,7 @@
   - Prisma STT: v2.5 hi-IN with ITN, plus an optional v3.0 codemix profile that sends `previous_text` context.
   - Timbre TTS: v2.5 (Nalini) for clarification questions and the read-back.
 - **Evidence:**
-  - 194 automated tests.
+  - 199 automated tests.
   - Natural speech: 56/56 fields, 0 wrong values, questions per draft down from 3.43 to 1.57 (14 fictional transcripts).
   - False-ready safety eval: 0 false-ready, 0 bypasses and 0 non-answers accepted (24 transcripts, 15 bypass attempts, 26 non-answers). With the guards deliberately broken, the eval catches them.
   - Live Gnani run of the full conflict → voice answer → read-back loop.

@@ -4,7 +4,7 @@ Research was done on 13 Nov 2026. Items marked **[unverified]** came only from s
 
 ## What is new in this build
 
-1. **A voice clarification agent that fills missing fields.** When a referral is missing a field, or a field fails validation, Gnani **Timbre** asks for it in Hindi ("गाँव का नाम नहीं मिला। कृपया गाँव का नाम बताइए।"). The worker answers out loud and Gnani **Prisma** transcribes the answer. The answer can fill **only the field that was asked about**. The loop repeats until every field passes validation, then produces the Timbre read-back.
+1. **A voice clarification agent that fills missing fields.** When a referral is missing a field, or a field fails validation, Gnani **Timbre** asks for it in Hindi ("मरीज़ के गाँव का नाम बताइए।"). The worker answers out loud and Gnani **Prisma** transcribes the answer. The answer can fill **only the field that was asked about**. The loop repeats until every field passes validation, then produces the Timbre read-back.
 2. **Spoken-number understanding.** Workers can say numbers as Hindi (Devanagari or romanised) or English words, including "double"/"डबल" and "triple". Romanised "do" counts as 2 only when it sits between digits, so "number do" (meaning "give the number") is not misread.
 3. **Read-back in ICAO style.** The contact number is read back one digit at a time, in groups of 5+5, so the voice pauses in the middle of the number.
 4. **Recording in the browser.** Audio is converted to 16 kHz mono WAV on the client, because the Prisma REST API accepts WAV/MP3/OGG/FLAC/AAC/M4A (≤30 s) but not webm.
