@@ -98,7 +98,7 @@ const setToken = (r, t) => { try { t ? sessionStorage.setItem(tokenKey(r), t) : 
 async function api(path, method = 'GET', body, token) {
   const opt = {method, headers: {}};
   if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
-  if (token) opt.headers.Authorization = 'Bearer ' + token;
+  if (token) opt.headers['X-Role-Token'] = token;
   const r = await fetch(path, opt), txt = await r.text();
   let j; try { j = JSON.parse(txt); } catch { j = {detail: txt}; }
   if (!r.ok) { const e = new Error(typeof j.detail === 'string' ? j.detail : 'Request failed'); e.status = r.status; throw e; }

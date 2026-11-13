@@ -415,7 +415,8 @@ const L = k => LABEL[lang][k];
 
 let live = false, c = null, stage = 'hello', fixField = null, busy = false, rec = null, typingRow = null;
 let emergency = null;           // chosen EMERGENCIES item
-let sessionStarted = false;     // Hi + language done once; ➕ then starts at the emergency list
+let sessionStarted = false;
+let publicPreview = false;    // public mock preview: remote Matri-Kavach handoff is disabled server-side     // Hi + language done once; ➕ then starts at the emergency list
 let pendingListen = false;      // hands-free: open the mic once the current step finishes
 
 /* ================= utils ================= */
@@ -890,14 +891,14 @@ function routeUpdate(r) {
     else botText(fmt(t('route_asked'), {p: r.target_name}), {label: true, extra: '<span class="small-note"><a href="/roles?role=' + esc(r.target) + '" target="_blank" rel="noopener">' + esc(t('b_roles')) + ' →</a></span>'});
   } else if (r.status === 'confirmed') {
     botHtml('<div class="ok-card"><div class="big">🏥</div><div><b>' + esc(fmt(t('route_ok'), {p: r.target_name})) + '</b><br><span style="color:var(--meta);font-size:12.5px">' + esc(fmt(t('route_ok_note'), {amb: r.ambulance, eta: r.eta_min, who: r.notified.map(w => WHO_LABEL[w] || w).join(', ')})) + '</span></div></div>');
-    chips([[t('b_roles'), () => window.open('/roles?role=driver', '_blank'), 'primary'], [t('b_mk'), () => guarded(handoff)], [t('b_new'), () => newReferral()]]);
+    chips([[t('b_roles'), () => window.open('/roles?role=driver', '_blank'), 'primary'], ...(publicPreview ? [] : [[t('b_mk'), () => guarded(handoff)]]), [t('b_new'), () => newReferral()]]);
   } else if (r.status === 'arrived') {
     botText(fmt(t('arrived'), {p: r.target_name}), {label: true}); routeDone();
   } else if (r.status === 'no_hospital') {
     botText(t('route_none'), {err: true}); routeDone();
   }
 }
-function routeDone() { clearInterval(routeTimer); routeTimer = null; stage = 'handoff'; chips([[t('b_mk'), () => guarded(handoff)], [t('b_new'), () => newReferral(), 'primary']]); }
+function routeDone() { clearInterval(routeTimer); routeTimer = null; stage = 'handoff'; chips([...(publicPreview ? [] : [[t('b_mk'), () => guarded(handoff)]]), [t('b_new'), () => newReferral(), 'primary']]); }
 async function handoff() {
   if (!c || !c.submitted || !emergency) return;
   const row = userText(t('b_handoff'));
@@ -974,7 +975,7 @@ function toggleTheme() {
 }
 try { const th = localStorage.getItem('vaani_theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (rec) cancelRecording(); closeList(); openSheet(false); } });
-api('/api/config').then(x => { live = !!x.timbre_live; }).catch(() => {}).finally(() => { setStatus(); newReferral(); });
+api('/api/config').then(x => { live = !!x.timbre_live; publicPreview = !!x.public_preview; }).catch(() => {}).finally(() => { setStatus(); newReferral(); });
 </script>
 </body>
 </html>

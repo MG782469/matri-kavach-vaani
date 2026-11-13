@@ -157,7 +157,7 @@ def rbac_leak_sweep(client):
 
     def tok(role):
         code = client.post('/api/role/login', json={'role': role}).json()['demo_code']
-        return {'Authorization': 'Bearer ' + client.post('/api/role/verify', json={'role': role, 'code': code}).json()['token']}
+        return {'X-Role-Token': client.post('/api/role/verify', json={'role': role, 'code': code}).json()['token']}
     toks = {r: tok(r) for r in rbac.ROLES}
     client.post(f'/api/role/cases/{ref}/act', json={'action': 'not_ready'}, headers=toks['dh'])
     client.post(f'/api/role/cases/{ref}/act', json={'action': 'confirm'}, headers=toks['sdh'])

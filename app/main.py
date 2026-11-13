@@ -148,9 +148,10 @@ def health(): return {'status':'ok', 'service':'matri-kavach-vaani', 'mode':MODE
 @app.get('/api/config')
 def config():
     live = MODE=='live' and bool(gnani_key())
+    public = public_mode()
     try: profile = profile_name()
     except PrismaError: profile = 'invalid'
-    return {'mode': MODE, 'prisma_live': live, 'timbre_live': live, 'stt_profile': profile}
+    return {'mode': MODE, 'prisma_live': live, 'timbre_live': live, 'stt_profile': profile, 'public_preview': public}
 
 async def read_audio(file):
     audio=await file.read(SETTINGS.max_audio_bytes + 1)
@@ -543,8 +544,9 @@ class RoleVerifyInput(BaseModel):
 class RoleActInput(BaseModel):
     action: str
 
-def current_role(authorization):
-    token=(authorization or '').removeprefix('Bearer ').strip()
+def current_role(token):
+    """Role token is sent in X-Role-Token (Authorization is reserved for the public preview's Basic auth)."""
+    token=(token or '').strip()
     try: return rbac.role_from_token(token)
     except rbac.AuthError as e: raise HTTPException(401,str(e))
 
@@ -565,8 +567,8 @@ def role_verify(body:RoleVerifyInput):
     except rbac.AuthError as e: raise HTTPException(401,str(e))
 
 @app.get('/api/role/inbox')
-def role_inbox(authorization:str|None=Header(None)):
-    role=current_role(authorization)
+def role_inbox(x_role_token:str|None=Header(None)):
+    role=current_role(x_role_token)
     items=[]
     for cid in STORE.all_ids():
         c=refresh_routing(cid)
@@ -581,8 +583,8 @@ def _find_case_by_ref(ref):
     raise HTTPException(404,'Case not found')
 
 @app.post('/api/role/cases/{case_ref}/act')
-def role_act(case_ref:str, body:RoleActInput, authorization:str|None=Header(None)):
-    role=current_role(authorization)
+def role_act(case_ref:str, body:RoleActInput, x_role_token:str|None=Header(None)):
+    role=current_role(x_role_token)
     cid=_find_case_by_ref(case_ref)
     fac=rbac.ROLES[role].get('facility')
     def apply(c):

@@ -18,9 +18,9 @@ Do not publish a local `GNANI_API_KEY`, `LIVE_KEY`, `DATABASE_URL`, Meta/Twilio 
 
 ## Security checklist before publishing
 
-1. Run all 105 offline tests; run `python benchmarks/run_benchmark.py`.
+1. Run all offline tests (`py -m unittest discover -s tests`) and `py benchmarks/run_safety_eval.py`.
 2. Confirm public service refuses to start if GNANI_MODE is live or DEMO_ACCESS_PASSWORD is missing/short.
-3. On HTTPS public URL, anonymous `GET /` and `/api/config` return HTTP 401; valid Basic credentials reach the mock UI. `/api/health` may remain accessible for monitoring.
+3. On the HTTPS public URL, anonymous `GET /`, `/chat`, `/roles` and `/api/config` return HTTP 401, and valid Basic credentials (username `demo`) reach the mock UI. Role phones still need their own one-time-code login, sent in `X-Role-Token`. `/api/health` may remain accessible for monitoring.
 4. Confirm no raw synthetic transcript, ID, contact or referral appears in server logs, URLs, copied screenshots or browser console beyond intentionally displayed data.
 5. Confirm public `/api/cases/<id>/handoff/demo` returns 403. It should never call the original backend.
 6. Confirm public audio upload is disabled, no Gnani API credits are consumed, and no external SMS/voice/WhatsApp dispatch occurs.

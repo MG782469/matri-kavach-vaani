@@ -59,7 +59,7 @@ Interactive explorer: `http://localhost:8000/docs`. Synthetic data only. There i
 - `GET /api/roles`: lists the roles and the who-sees-what rules.
 - `POST /api/role/login`: JSON body `{"role": "dh"}`. Returns `demo_code`, a one-time code shown on screen in this demo.
 - `POST /api/role/verify`: JSON body `{"role": "dh", "code": "123456"}`. Returns a signed token that lasts 8 hours.
-- `GET /api/role/inbox` with `Authorization: Bearer <token>`: allow-listed views of only the cases that involve this role. No role ever receives the contact number or transcript.
+- `GET /api/role/inbox` with header `X-Role-Token: <token>` (the `Authorization` header stays free for the public preview's Basic auth): allow-listed views of only the cases that involve this role. No role ever receives the contact number or transcript.
 - `POST /api/role/cases/{CASE_REF}/act`: JSON body `{"action": ...}`.
   - A hospital can use `confirm`, `not_ready` or `arrived`, and only for a case where it is the asked or confirmed hospital.
   - The district can use `skip_wait`.

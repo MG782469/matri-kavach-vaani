@@ -41,7 +41,7 @@ class RoutingRbacApiTests(unittest.TestCase):
             r = self.client.post('/api/role/verify', json={'role': role, 'code': code})
             self.assertEqual(r.status_code, 200, r.text)
             self.tokens[role] = r.json()['token']
-        return {'Authorization': 'Bearer ' + self.tokens[role]}
+        return {'X-Role-Token': self.tokens[role]}
 
     def inbox(self, role):
         r = self.client.get('/api/role/inbox', headers=self.token(role))
@@ -147,14 +147,14 @@ class RoutingRbacApiTests(unittest.TestCase):
         self.assertEqual(self.client.post('/api/role/verify', json={'role': 'dh', 'code': '000000x'}).status_code, 401)
         self.assertEqual(self.client.post('/api/role/login', json={'role': 'admin'}).status_code, 404)
         self.assertEqual(self.client.get('/api/role/inbox').status_code, 401)
-        self.assertEqual(self.client.get('/api/role/inbox', headers={'Authorization': 'Bearer forged'}).status_code, 401)
+        self.assertEqual(self.client.get('/api/role/inbox', headers={'X-Role-Token': 'forged'}).status_code, 401)
 
     def test_tampered_token_rejected(self):
         import base64
-        good = self.token('driver')['Authorization'].split()[1]
+        good = self.token('driver')['X-Role-Token']
         role, exp, sig = base64.urlsafe_b64decode(good).decode().split('|')
         forged = base64.urlsafe_b64encode(f'district|{exp}|{sig}'.encode()).decode()
-        self.assertEqual(self.client.get('/api/role/inbox', headers={'Authorization': 'Bearer ' + forged}).status_code, 401)
+        self.assertEqual(self.client.get('/api/role/inbox', headers={'X-Role-Token': forged}).status_code, 401)
 
     def test_roles_cannot_do_other_roles_actions(self):
         _, u, ref = self.submitted_case()
@@ -207,6 +207,21 @@ class RoutingRbacApiTests(unittest.TestCase):
         roles = self.client.get('/api/roles').json()
         self.assertIn('driver', [x['role'] for x in roles['roles']])
         self.assertIn('No medical details', roles['who_sees_what']['driver'])
+
+    def test_role_phones_work_behind_public_preview_password(self):
+        # Public preview uses HTTP Basic in "Authorization"; the role token must not collide with it.
+        import base64
+        pw = 'a-very-long-demo-password'
+        basic = {'Authorization': 'Basic ' + base64.b64encode(f'demo:{pw}'.encode()).decode()}
+        with patch.dict(os.environ, {'DEMO_PUBLIC': '1', 'DEMO_ACCESS_PASSWORD': pw}):
+            self.assertEqual(self.client.get('/roles').status_code, 401)                      # password gate
+            self.assertEqual(self.client.get('/roles', headers=basic).status_code, 200)
+            code = self.client.post('/api/role/login', json={'role': 'district'}, headers=basic).json()['demo_code']
+            tok = self.client.post('/api/role/verify', json={'role': 'district', 'code': code}, headers=basic).json()['token']
+            r = self.client.get('/api/role/inbox', headers={**basic, 'X-Role-Token': tok})
+            self.assertEqual(r.status_code, 200, r.text)
+            self.assertEqual(self.client.get('/api/role/inbox', headers=basic).status_code, 401)  # still needs the role login
+            self.assertTrue(self.client.get('/api/config', headers=basic).json()['public_preview'])
 
     def test_old_cases_without_routing_still_load(self):
         import json
